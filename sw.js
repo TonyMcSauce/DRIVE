@@ -1,4 +1,4 @@
-const CACHE_NAME = "drive-shell-v2";
+const CACHE_NAME = "drive-shell-v3-0-0";
 const APP_SHELL = [
   "./",
   "./index.html",

@@ -89,7 +89,7 @@
     <main class="main">
       <header class="topbar">
         <div>
-          <div class="wordmark">DRIVE</div>
+          <div class="brand-line"><div class="wordmark">DRIVE</div><span class="version-badge">v0.3.0</span></div>
           <div class="vehicle-subtitle">LEXUS IS250 · 2007</div>
         </div>
         <button class="icon-button" id="moreButton" aria-label="More options">
@@ -208,6 +208,58 @@
           </div>
           <button class="secondary-button" id="scanFuelButton">OPEN CAMERA</button>
         </div>
+        <form class="manual-fuel-card" id="manualFuelForm">
+          <div class="manual-fuel-head">
+            <div>
+              <div class="metric-label">MANUAL ENTRY</div>
+              <h2>Add fuel without scanning</h2>
+              <p>Enter the numbers yourself. DRIVE will use the odometer and fuel data for future economy calculations.</p>
+            </div>
+            <div class="manual-entry-icon"><svg viewBox="0 0 24 24"><use href="#icon-plus"/></svg></div>
+          </div>
+
+          <div class="fuel-form-grid">
+            <label class="field">
+              <span>ODOMETER</span>
+              <div class="input-wrap">
+                <input id="fuelOdometer" type="number" inputmode="decimal" min="0" step="1" placeholder="128421" required>
+                <em>KM</em>
+              </div>
+            </label>
+
+            <label class="field">
+              <span>FUEL</span>
+              <div class="input-wrap">
+                <input id="fuelLitres" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="50.2" required>
+                <em>L</em>
+              </div>
+            </label>
+
+            <label class="field">
+              <span>AMOUNT PAID</span>
+              <div class="input-wrap">
+                <input id="fuelAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="745.00" required>
+                <em>P</em>
+              </div>
+            </label>
+
+            <label class="field">
+              <span>FUEL STATION <small>OPTIONAL</small></span>
+              <input id="fuelStation" type="text" maxlength="60" placeholder="e.g. Engen Jwaneng">
+            </label>
+          </div>
+
+          <div class="fuel-form-footer">
+            <div class="calculated-preview">
+              <span>PRICE / LITRE</span>
+              <strong id="fuelPricePreview">P0.00</strong>
+            </div>
+            <button class="secondary-button submit-fuel" type="submit">
+              <svg viewBox="0 0 24 24"><use href="#icon-check"/></svg>
+              SAVE FUEL
+            </button>
+          </div>
+        </form>
         <div class="metric-grid">
           <article class="metric-card"><div class="metric-label">AVERAGE ECONOMY</div><div class="metric-value">8.47</div><div class="metric-unit">L / 100 KM</div></article>
           <article class="metric-card"><div class="metric-label">AVG. FUEL PRICE</div><div class="metric-value">P14.84</div><div class="metric-unit">PER LITRE</div></article>
@@ -331,6 +383,60 @@
     document.getElementById("scanFuelButton").addEventListener("click", () => {
       showToast("Camera/OCR module comes next");
     });
+
+    // Manual fuel entry is available independently of OCR.
+    const fuelForm = document.getElementById("manualFuelForm");
+    const fuelOdometer = document.getElementById("fuelOdometer");
+    const fuelLitres = document.getElementById("fuelLitres");
+    const fuelAmount = document.getElementById("fuelAmount");
+    const fuelPricePreview = document.getElementById("fuelPricePreview");
+
+    function updateFuelPricePreview() {
+      const litres = Number(fuelLitres.value);
+      const amount = Number(fuelAmount.value);
+      fuelPricePreview.textContent =
+        litres > 0 && amount >= 0 ? `P${(amount / litres).toFixed(2)}` : "P0.00";
+    }
+
+    fuelLitres.addEventListener("input", updateFuelPricePreview);
+    fuelAmount.addEventListener("input", updateFuelPricePreview);
+
+    function getFuelEntries() {
+      try {
+        return JSON.parse(localStorage.getItem("driveFuelEntries") || "[]");
+      } catch {
+        return [];
+      }
+    }
+
+    fuelForm.addEventListener("submit", event => {
+      event.preventDefault();
+
+      const entry = {
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+        odometer: Number(fuelOdometer.value),
+        litres: Number(fuelLitres.value),
+        amount: Number(fuelAmount.value),
+        station: document.getElementById("fuelStation").value.trim(),
+        createdAt: new Date().toISOString()
+      };
+
+      if (!entry.odometer || entry.litres <= 0 || entry.amount < 0) {
+        showToast("Check the fuel details");
+        return;
+      }
+
+      const entries = getFuelEntries();
+      entries.unshift(entry);
+      localStorage.setItem("driveFuelEntries", JSON.stringify(entries));
+
+      fuelForm.reset();
+      updateFuelPricePreview();
+      showToast("Fuel entry saved");
+    });
+
+    // Show the current app version in the document title too.
+    document.title = `DRIVE ${"v0.3.0"} — Vehicle Intelligence`;
 
     document.getElementById("serviceButton").addEventListener("click", () => {
       activatePage("carPage");
