@@ -89,7 +89,7 @@
     <main class="main">
       <header class="topbar">
         <div>
-          <div class="brand-line"><div class="wordmark">DRIVE</div><span class="version-badge">v0.3.0</span></div>
+          <div class="brand-line"><div class="wordmark">DRIVE</div><span class="version-badge" id="appVersion">v0.4.0</span></div>
           <div class="vehicle-subtitle">LEXUS IS250 · 2007</div>
         </div>
         <button class="icon-button" id="moreButton" aria-label="More options">
@@ -101,19 +101,19 @@
       <section class="page active" id="dashboardPage">
         <div class="hero">
           <div class="eyebrow">CURRENT ODOMETER</div>
-          <div class="odometer">128,421</div>
+          <div class="odometer" id="dashboardOdometer">128,421</div>
           <div class="unit">KM</div>
         </div>
 
         <div class="metric-grid">
           <article class="metric-card">
             <div class="metric-label">FUEL ECONOMY</div>
-            <div class="metric-value">8.47</div>
+            <div class="metric-value" id="fuelEconomyValue">8.47</div>
             <div class="metric-unit">L / 100 KM</div>
           </article>
           <article class="metric-card">
             <div class="metric-label">COST</div>
-            <div class="metric-value">P1.24</div>
+            <div class="metric-value" id="costPerKmValue">P1.24</div>
             <div class="metric-unit">PER KM</div>
           </article>
         </div>
@@ -122,11 +122,11 @@
           <div class="health-head">
             <div>
               <div class="metric-label">VEHICLE HEALTH</div>
-              <div class="health-number">87 <span>/100</span></div>
+              <div class="health-number" id="healthNumber">87 <span>/100</span></div>
             </div>
             <div class="health-status">GOOD</div>
           </div>
-          <div class="health-track"><span style="width:87%"></span></div>
+          <div class="health-track"><span id="healthBar" style="width:87%"></span></div>
           <div class="health-note">Maintenance profile is within normal operating range.</div>
         </article>
 
@@ -152,13 +152,13 @@
         <div class="activity-list">
           <button class="activity-row">
             <span class="activity-icon"><svg viewBox="0 0 24 24"><use href="#icon-gas"/></svg></span>
-            <span class="activity-main"><strong>Fuel</strong><small>50.2 L · P745</small></span>
-            <span class="activity-right">128,421 km</span>
+            <span class="activity-main"><strong id="latestFuelTitle">Fuel</strong><small id="latestFuelMeta">50.2 L · P745</small></span>
+            <span class="activity-right" id="latestFuelRight">Today</span>
           </button>
           <button class="activity-row">
             <span class="activity-icon"><svg viewBox="0 0 24 24"><use href="#icon-route"/></svg></span>
-            <span class="activity-main"><strong>Jwaneng → Work</strong><small>9.8 km · 18 min</small></span>
-            <span class="activity-right">P13.10</span>
+            <span class="activity-main"><strong id="latestTripTitle">Jwaneng → Work</strong><small id="latestTripMeta">9.8 km · 18 min</small></span>
+            <span class="activity-right" id="latestTripRight">P13.10</span>
           </button>
         </div>
       </section>
@@ -186,11 +186,11 @@
           <span>START DRIVE</span>
         </button>
         <div class="section-title">TRIP HISTORY</div>
-        <div class="empty-card">
+        <div id="tripHistory"><div class="empty-card">
           <svg viewBox="0 0 24 24"><use href="#icon-route"/></svg>
           <strong>Your drives will appear here</strong>
           <span>Start a drive to begin building your history.</span>
-        </div>
+        </div></div>
       </section>
 
       <!-- FUEL -->
@@ -261,11 +261,11 @@
           </div>
         </form>
         <div class="metric-grid">
-          <article class="metric-card"><div class="metric-label">AVERAGE ECONOMY</div><div class="metric-value">8.47</div><div class="metric-unit">L / 100 KM</div></article>
-          <article class="metric-card"><div class="metric-label">AVG. FUEL PRICE</div><div class="metric-value">P14.84</div><div class="metric-unit">PER LITRE</div></article>
+          <article class="metric-card"><div class="metric-label">AVERAGE ECONOMY</div><div class="metric-value" id="fuelAvgEconomy">8.47</div><div class="metric-unit">L / 100 KM</div></article>
+          <article class="metric-card"><div class="metric-label">AVG. FUEL PRICE</div><div class="metric-value" id="fuelAvgPrice">P14.84</div><div class="metric-unit">PER LITRE</div></article>
         </div>
         <div class="section-title">RECENT FUEL</div>
-        <div class="activity-list"><div class="activity-row static-row"><span class="activity-icon"><svg viewBox="0 0 24 24"><use href="#icon-gas"/></svg></span><span class="activity-main"><strong>50.2 L</strong><small>P745 · 128,421 km</small></span><span class="activity-right">Today</span></div></div>
+        <div class="activity-list" id="fuelHistory"></div>
       </section>
 
       <!-- CAR -->
@@ -277,7 +277,7 @@
         </div>
         <div class="car-hero">
           <div class="car-silhouette"><svg viewBox="0 0 24 24"><use href="#icon-car"/></svg></div>
-          <div><span class="metric-label">ODOMETER</span><strong>128,421 km</strong></div>
+          <div><span class="metric-label">ODOMETER</span><strong id="carOdometer">128,421 km</strong></div>
           <div><span class="metric-label">HEALTH</span><strong>87 / 100</strong></div>
         </div>
         <div class="section-title">MAINTENANCE</div>
@@ -302,9 +302,10 @@
         </div>
         <div class="offline-card">
           <span class="status-pulse"></span>
-          <div><strong id="connectionText">Online</strong><small>DRIVE is designed to keep working offline.</small></div>
+          <div><strong id="connectionText">Online</strong><small id="dataStorageText">Local data + update checks enabled</small></div>
         </div>
       </section>
+    <div class="app-footer"><span>DRIVE Vehicle Intelligence</span><span id="footerVersion">v0.4.0</span></div>
     </main>
 
     <nav class="bottom-nav" aria-label="Mobile navigation">
@@ -318,163 +319,7 @@
 
   <div class="toast" id="toast" role="status"></div>
 
-  <script>
-    const navItems = document.querySelectorAll(".nav-item");
-    const pages = document.querySelectorAll(".page");
-    const toast = document.getElementById("toast");
-    let tripRunning = false;
-    let tripTimer = null;
-    let tripSeconds = 0;
-
-    function showToast(message) {
-      toast.textContent = message;
-      toast.classList.add("show");
-      clearTimeout(showToast.timer);
-      showToast.timer = setTimeout(() => toast.classList.remove("show"), 2600);
-    }
-
-    function activatePage(id) {
-      pages.forEach(page => page.classList.toggle("active", page.id === id));
-      navItems.forEach(item => item.classList.toggle("active", item.dataset.page === id));
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-
-    navItems.forEach(item => item.addEventListener("click", () => activatePage(item.dataset.page)));
-
-    function updateTripUI() {
-      const driveButtons = [document.getElementById("driveButton"), document.getElementById("tripToggle")];
-      driveButtons.forEach(button => {
-        if (!button) return;
-        const text = button.querySelector("span:last-child");
-        if (text) text.textContent = tripRunning ? "END DRIVE" : "START DRIVE";
-        const icon = button.querySelector("use");
-        if (icon) icon.setAttribute("href", tripRunning ? "#icon-stop" : "#icon-play");
-      });
-      document.getElementById("gpsStatus").textContent = tripRunning ? "Tracking" : "Ready";
-      document.getElementById("tripLiveCard").classList.toggle("tracking", tripRunning);
-    }
-
-    function toggleTrip() {
-      tripRunning = !tripRunning;
-      if (tripRunning) {
-        tripSeconds = 0;
-        tripTimer = setInterval(() => {
-          tripSeconds++;
-          const m = String(Math.floor(tripSeconds / 60)).padStart(2, "0");
-          const s = String(tripSeconds % 60).padStart(2, "0");
-          document.getElementById("liveDuration").textContent = `${m}:${s}`;
-        }, 1000);
-        showToast("Drive started");
-      } else {
-        clearInterval(tripTimer);
-        showToast("Drive ended");
-      }
-      updateTripUI();
-    }
-
-    document.getElementById("driveButton").addEventListener("click", toggleTrip);
-    document.getElementById("tripToggle").addEventListener("click", toggleTrip);
-
-    document.getElementById("addFuelButton").addEventListener("click", () => {
-      activatePage("fuelPage");
-      showToast("Fuel entry ready");
-    });
-
-    document.getElementById("scanFuelButton").addEventListener("click", () => {
-      showToast("Camera/OCR module comes next");
-    });
-
-    // Manual fuel entry is available independently of OCR.
-    const fuelForm = document.getElementById("manualFuelForm");
-    const fuelOdometer = document.getElementById("fuelOdometer");
-    const fuelLitres = document.getElementById("fuelLitres");
-    const fuelAmount = document.getElementById("fuelAmount");
-    const fuelPricePreview = document.getElementById("fuelPricePreview");
-
-    function updateFuelPricePreview() {
-      const litres = Number(fuelLitres.value);
-      const amount = Number(fuelAmount.value);
-      fuelPricePreview.textContent =
-        litres > 0 && amount >= 0 ? `P${(amount / litres).toFixed(2)}` : "P0.00";
-    }
-
-    fuelLitres.addEventListener("input", updateFuelPricePreview);
-    fuelAmount.addEventListener("input", updateFuelPricePreview);
-
-    function getFuelEntries() {
-      try {
-        return JSON.parse(localStorage.getItem("driveFuelEntries") || "[]");
-      } catch {
-        return [];
-      }
-    }
-
-    fuelForm.addEventListener("submit", event => {
-      event.preventDefault();
-
-      const entry = {
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-        odometer: Number(fuelOdometer.value),
-        litres: Number(fuelLitres.value),
-        amount: Number(fuelAmount.value),
-        station: document.getElementById("fuelStation").value.trim(),
-        createdAt: new Date().toISOString()
-      };
-
-      if (!entry.odometer || entry.litres <= 0 || entry.amount < 0) {
-        showToast("Check the fuel details");
-        return;
-      }
-
-      const entries = getFuelEntries();
-      entries.unshift(entry);
-      localStorage.setItem("driveFuelEntries", JSON.stringify(entries));
-
-      fuelForm.reset();
-      updateFuelPricePreview();
-      showToast("Fuel entry saved");
-    });
-
-    // Show the current app version in the document title too.
-    document.title = `DRIVE ${"v0.3.0"} — Vehicle Intelligence`;
-
-    document.getElementById("serviceButton").addEventListener("click", () => {
-      activatePage("carPage");
-      showToast("Maintenance profile");
-    });
-
-    document.getElementById("moreButton").addEventListener("click", () => activatePage("morePage"));
-
-    function updateConnection() {
-      const online = navigator.onLine;
-      document.getElementById("connectionText").textContent = online ? "Online" : "Offline";
-      document.body.classList.toggle("offline", !online);
-    }
-    window.addEventListener("online", updateConnection);
-    window.addEventListener("offline", updateConnection);
-    updateConnection();
-
-    // Register the service worker. The worker checks for a newer version whenever
-    // the browser starts/revisits the app while online.
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", async () => {
-        try {
-          const registration = await navigator.serviceWorker.register("./sw.js");
-          if (navigator.onLine) registration.update();
-          registration.addEventListener("updatefound", () => {
-            const worker = registration.installing;
-            if (!worker) return;
-            worker.addEventListener("statechange", () => {
-              if (worker.state === "installed" && navigator.serviceWorker.controller) {
-                showToast("A new DRIVE version is available");
-              }
-            });
-          });
-        } catch (error) {
-          console.warn("Service worker registration failed:", error);
-        }
-      });
-    }
-  </script>
+  <script src="db.js" defer></script>
+  <script src="app.js" defer></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 {
-  "name": "DRIVE — Vehicle Intelligence",
+  "name": "DRIVE \u2014 Vehicle Intelligence",
   "short_name": "DRIVE",
   "start_url": "./",
   "scope": "./",
@@ -7,6 +7,11 @@
   "background_color": "#08090a",
   "theme_color": "#08090a",
   "description": "Vehicle intelligence dashboard for trips, fuel and maintenance.",
-  "version": "0.3.0",
-  "icons": []
+  "icons": [],
+  "version": "0.4.0",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "orientation": "portrait-primary"
 }

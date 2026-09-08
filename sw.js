@@ -1,10 +1,12 @@
-const CACHE_NAME = "drive-shell-v3-0-0";
+const CACHE_NAME = "drive-shell-v4-0-0";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./manifest.json",
-  "./sw.js"
+  "./sw.js",
+  "./db.js",
+  "./app.js"
 ];
 
 self.addEventListener("install", event => {
