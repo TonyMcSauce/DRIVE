@@ -89,7 +89,7 @@
     <main class="main">
       <header class="topbar">
         <div>
-          <div class="brand-line"><div class="wordmark">DRIVE</div><span class="version-badge" id="appVersion">v0.4.0</span></div>
+          <div class="brand-line"><div class="wordmark">DRIVE</div><span class="version-badge" id="appVersion">v0.5.0</span></div>
           <div class="vehicle-subtitle">LEXUS IS250 · 2007</div>
         </div>
         <button class="icon-button" id="moreButton" aria-label="More options">
@@ -179,12 +179,19 @@
           <div class="trip-live-stats">
             <span><b id="liveDistance">0.00</b> km</span>
             <span><b id="liveDuration">00:00</b></span>
+            <span><b id="liveSpeed">0</b> km/h</span>
           </div>
+          <div class="gps-detail"><span>GPS ACCURACY</span><b id="gpsAccuracy">—</b></div>
         </div>
         <button class="large-action" id="tripToggle">
           <span class="action-icon play-icon"><svg viewBox="0 0 24 24"><use href="#icon-play"/></svg></span>
           <span>START DRIVE</span>
         </button>
+        <div class="metric-grid trip-summary-grid">
+          <article class="metric-card"><div class="metric-label">DRIVES</div><div class="metric-value" id="tripCount">0</div><div class="metric-unit">RECORDED</div></article>
+          <article class="metric-card"><div class="metric-label">DISTANCE</div><div class="metric-value" id="tripTotalDistance">0.0 km</div><div class="metric-unit">TOTAL</div></article>
+          <article class="metric-card"><div class="metric-label">DRIVING TIME</div><div class="metric-value" id="tripTotalTime">0 min</div><div class="metric-unit">TOTAL</div></article>
+        </div>
         <div class="section-title">TRIP HISTORY</div>
         <div id="tripHistory"><div class="empty-card">
           <svg viewBox="0 0 24 24"><use href="#icon-route"/></svg>
@@ -299,13 +306,14 @@
           <button class="settings-row"><span>App settings</span><svg viewBox="0 0 24 24"><use href="#icon-chevron"/></svg></button>
           <button class="settings-row"><span>Data & privacy</span><svg viewBox="0 0 24 24"><use href="#icon-chevron"/></svg></button>
           <button class="settings-row"><span>Export vehicle data</span><svg viewBox="0 0 24 24"><use href="#icon-chevron"/></svg></button>
+          <button class="settings-row" id="checkUpdatesButton"><span>Check for app updates</span><svg viewBox="0 0 24 24"><use href="#icon-chevron"/></svg></button>
         </div>
         <div class="offline-card">
           <span class="status-pulse"></span>
           <div><strong id="connectionText">Online</strong><small id="dataStorageText">Local data + update checks enabled</small></div>
         </div>
       </section>
-    <div class="app-footer"><span>DRIVE Vehicle Intelligence</span><span id="footerVersion">v0.4.0</span></div>
+    <div class="app-footer"><span>DRIVE Vehicle Intelligence</span><span id="footerVersion">v0.5.0</span></div>
     </main>
 
     <nav class="bottom-nav" aria-label="Mobile navigation">

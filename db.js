@@ -1,137 +1,15 @@
-/* DRIVE v0.4 — IndexedDB data layer */
+/* DRIVE v0.5 — IndexedDB data layer */
 const DRIVE_DB = "driveVehicleDB";
-const DRIVE_DB_VERSION = 1;
-
-const STORES = {
-  vehicle: "vehicle",
-  fuel: "fuel",
-  trips: "trips",
-  service: "service"
-};
-
-function requestToPromise(request) {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function transactionDone(tx) {
-  return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error || new Error("Transaction aborted"));
-  });
-}
-
-function openDriveDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DRIVE_DB, DRIVE_DB_VERSION);
-
-    request.onupgradeneeded = event => {
-      const db = event.target.result;
-
-      if (!db.objectStoreNames.contains(STORES.vehicle)) {
-        db.createObjectStore(STORES.vehicle, { keyPath: "id" });
-      }
-
-      if (!db.objectStoreNames.contains(STORES.fuel)) {
-        const store = db.createObjectStore(STORES.fuel, { keyPath: "id", autoIncrement: true });
-        store.createIndex("odometer", "odometer", { unique: false });
-        store.createIndex("createdAt", "createdAt", { unique: false });
-      }
-
-      if (!db.objectStoreNames.contains(STORES.trips)) {
-        const store = db.createObjectStore(STORES.trips, { keyPath: "id", autoIncrement: true });
-        store.createIndex("startedAt", "startedAt", { unique: false });
-      }
-
-      if (!db.objectStoreNames.contains(STORES.service)) {
-        const store = db.createObjectStore(STORES.service, { keyPath: "id", autoIncrement: true });
-        store.createIndex("date", "date", { unique: false });
-        store.createIndex("odometer", "odometer", { unique: false });
-      }
-    };
-
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-const DriveDB = {
-  async init() {
-    if (!this._db) this._db = await openDriveDB();
-    return this._db;
-  },
-
-  async get(storeName, key) {
-    const db = await this.init();
-    return requestToPromise(db.transaction(storeName, "readonly").objectStore(storeName).get(key));
-  },
-
-  async getAll(storeName) {
-    const db = await this.init();
-    return requestToPromise(db.transaction(storeName, "readonly").objectStore(storeName).getAll());
-  },
-
-  async add(storeName, value) {
-    const db = await this.init();
-    const tx = db.transaction(storeName, "readwrite");
-    const request = tx.objectStore(storeName).add(value);
-    const result = await requestToPromise(request);
-    await transactionDone(tx);
-    return result;
-  },
-
-  async put(storeName, value) {
-    const db = await this.init();
-    const tx = db.transaction(storeName, "readwrite");
-    const request = tx.objectStore(storeName).put(value);
-    const result = await requestToPromise(request);
-    await transactionDone(tx);
-    return result;
-  },
-
-  async remove(storeName, key) {
-    const db = await this.init();
-    const tx = db.transaction(storeName, "readwrite");
-    tx.objectStore(storeName).delete(key);
-    await transactionDone(tx);
-  },
-
-  async count(storeName) {
-    const db = await this.init();
-    return requestToPromise(db.transaction(storeName, "readonly").objectStore(storeName).count());
-  },
-
-  async seed() {
-    const vehicle = await this.get(STORES.vehicle, "primary");
-    if (!vehicle) {
-      await this.put(STORES.vehicle, {
-        id: "primary",
-        make: "Lexus",
-        model: "IS250",
-        year: 2007,
-        odometer: 128421,
-        health: 87,
-        fuelType: "Petrol",
-        currency: "BWP",
-        createdAt: new Date().toISOString()
-      });
-    }
-
-    if (await this.count(STORES.fuel) === 0) {
-      await this.add(STORES.fuel, {
-        odometer: 128421,
-        litres: 50.2,
-        amount: 745,
-        station: "",
-        source: "seed",
-        createdAt: new Date().toISOString()
-      });
-    }
-  }
-};
-
-window.DriveDB = DriveDB;
-window.DRIVE_STORES = STORES;
+const DRIVE_DB_VERSION = 2;
+const STORES = { vehicle:"vehicle", fuel:"fuel", trips:"trips", tripPoints:"tripPoints", service:"service" };
+function requestToPromise(request){return new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});}
+function transactionDone(tx){return new Promise((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error("Transaction aborted"));});}
+function openDriveDB(){return new Promise((resolve,reject)=>{const request=indexedDB.open(DRIVE_DB,DRIVE_DB_VERSION);request.onupgradeneeded=event=>{const db=event.target.result;const oldVersion=event.oldVersion;
+ if(!db.objectStoreNames.contains(STORES.vehicle)) db.createObjectStore(STORES.vehicle,{keyPath:"id"});
+ if(!db.objectStoreNames.contains(STORES.fuel)){const s=db.createObjectStore(STORES.fuel,{keyPath:"id",autoIncrement:true});s.createIndex("odometer","odometer");s.createIndex("createdAt","createdAt");}
+ if(!db.objectStoreNames.contains(STORES.trips)){const s=db.createObjectStore(STORES.trips,{keyPath:"id",autoIncrement:true});s.createIndex("startedAt","startedAt");s.createIndex("status","status");} else if(oldVersion<2){const s=event.target.transaction.objectStore(STORES.trips);if(!s.indexNames.contains("status"))s.createIndex("status","status");}
+ if(!db.objectStoreNames.contains(STORES.tripPoints)){const s=db.createObjectStore(STORES.tripPoints,{keyPath:"id",autoIncrement:true});s.createIndex("tripId","tripId");s.createIndex("timestamp","timestamp");}
+ if(!db.objectStoreNames.contains(STORES.service)){const s=db.createObjectStore(STORES.service,{keyPath:"id",autoIncrement:true});s.createIndex("date","date");s.createIndex("odometer","odometer");}
+ };request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});}
+const DriveDB={async init(){if(!this._db)this._db=await openDriveDB();return this._db;},async get(store,key){const db=await this.init();return requestToPromise(db.transaction(store,"readonly").objectStore(store).get(key));},async getAll(store){const db=await this.init();return requestToPromise(db.transaction(store,"readonly").objectStore(store).getAll());},async getAllByIndex(store,index,value){const db=await this.init();return requestToPromise(db.transaction(store,"readonly").objectStore(store).index(index).getAll(value));},async add(store,value){const db=await this.init();const tx=db.transaction(store,"readwrite");const r=tx.objectStore(store).add(value);const result=await requestToPromise(r);await transactionDone(tx);return result;},async put(store,value){const db=await this.init();const tx=db.transaction(store,"readwrite");const r=tx.objectStore(store).put(value);const result=await requestToPromise(r);await transactionDone(tx);return result;},async addMany(store,values){if(!values.length)return;const db=await this.init();const tx=db.transaction(store,"readwrite");const s=tx.objectStore(store);values.forEach(v=>s.add(v));await transactionDone(tx);},async remove(store,key){const db=await this.init();const tx=db.transaction(store,"readwrite");tx.objectStore(store).delete(key);await transactionDone(tx);},async removeByIndex(store,index,value){const db=await this.init();const tx=db.transaction(store,"readwrite");const s=tx.objectStore(store);const req=s.index(index).openCursor(IDBKeyRange.only(value));req.onsuccess=()=>{const c=req.result;if(c){c.delete();c.continue();}};await transactionDone(tx);},async count(store){const db=await this.init();return requestToPromise(db.transaction(store,"readonly").objectStore(store).count());},async seed(){if(!(await this.get(STORES.vehicle,"primary")))await this.put(STORES.vehicle,{id:"primary",make:"Lexus",model:"IS250",year:2007,odometer:128421,health:87,fuelType:"Petrol",currency:"BWP",createdAt:new Date().toISOString()});if(await this.count(STORES.fuel)===0)await this.add(STORES.fuel,{odometer:128421,litres:50.2,amount:745,station:"",source:"seed",createdAt:new Date().toISOString()});}};
+window.DriveDB=DriveDB;window.DRIVE_STORES=STORES;

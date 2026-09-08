@@ -1,17 +1,14 @@
 {
-  "name": "DRIVE \u2014 Vehicle Intelligence",
-  "short_name": "DRIVE",
-  "start_url": "./",
-  "scope": "./",
-  "display": "standalone",
-  "background_color": "#08090a",
-  "theme_color": "#08090a",
-  "description": "Vehicle intelligence dashboard for trips, fuel and maintenance.",
-  "icons": [],
-  "version": "0.4.0",
-  "display_override": [
-    "window-controls-overlay",
-    "standalone"
-  ],
-  "orientation": "portrait-primary"
+  "name":"DRIVE — Vehicle Intelligence",
+  "short_name":"DRIVE",
+  "start_url":"./",
+  "scope":"./",
+  "display":"standalone",
+  "display_override":["window-controls-overlay","standalone"],
+  "background_color":"#08090a",
+  "theme_color":"#08090a",
+  "description":"Vehicle intelligence dashboard for trips, fuel and maintenance.",
+  "icons":[],
+  "version":"0.5.0",
+  "orientation":"portrait-primary"
 }
