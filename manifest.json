@@ -1,20 +1,11 @@
 {
-    "name": "DRIVE — Personal Vehicle Intelligence",
-    "short_name": "DRIVE",
-    "description": "Track fuel, mileage, trips, maintenance and vehicle costs.",
-    "start_url": "./",
-    "scope": "./",
-    "display": "standalone",
-    "orientation": "portrait-primary",
-    "background_color": "#090b0d",
-    "theme_color": "#090b0d",
-
-    "icons": [
-        {
-            "src": "icons/icon.svg",
-            "sizes": "any",
-            "type": "image/svg+xml",
-            "purpose": "any maskable"
-        }
-    ]
+  "name": "DRIVE — Vehicle Intelligence",
+  "short_name": "DRIVE",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#08090a",
+  "theme_color": "#08090a",
+  "description": "Vehicle intelligence dashboard for trips, fuel and maintenance.",
+  "icons": []
 }
