@@ -17,6 +17,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 function setupNavigation(){document.querySelectorAll(".nav-item").forEach(button=>button.addEventListener("click",()=>showPage(button.dataset.page)));}
 function showPage(pageId){document.querySelectorAll(".page").forEach(page=>page.classList.remove("active"));const page=document.getElementById(pageId);page?.classList.add("active");document.querySelectorAll(".nav-item").forEach(item=>item.classList.toggle("active",item.dataset.page===pageId));currentPage=pageId;page?.focus({preventScroll:true});if(pageId==="dashboardPage")window.DRIVE_V07?.refresh();if(pageId==="analyticsView")window.DRIVE_ANALYTICS?.refresh();window.DRIVE_A11Y?.refresh();}
 function setupActions(){document.querySelectorAll('[data-action="fuel"]').forEach(button=>button.addEventListener("click",openFuelModal));document.querySelectorAll('[data-action="service"]').forEach(button=>button.addEventListener("click",()=>window.DRIVE_MAINTENANCE?.openMaintenance()));document.getElementById("startDriveButton")?.addEventListener("click",startDrive);document.getElementById("stopDriveButton")?.addEventListener("click",stopDrive);document.querySelectorAll("[data-close]").forEach(button=>button.addEventListener("click",()=>closeModal(button.dataset.close)));}
+
+document.addEventListener("click", event => { if (event.target.closest("#openCameraButton")) window.DRIVE_CAMERA?.open(); });
+
 function openFuelModal(){const modal=document.getElementById("fuelModal");modal?.classList.remove("hidden");const input=document.getElementById("fuelOdometer");if(input)input.value=(document.getElementById("odometerValue")?.textContent||"").replaceAll(",","").replace(/[^0-9.]/g,"");input?.focus();window.DRIVE_A11Y?.refresh();}
 function closeModal(id){document.getElementById(id)?.classList.add("hidden");}
 function setDefaultDate(){const input=document.getElementById("fuelDate");if(input)input.value=new Date().toISOString().split("T")[0];}
