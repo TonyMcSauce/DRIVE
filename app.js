@@ -3,7 +3,7 @@ let tripActive = false;
 let tripTimer = null;
 let tripStartedAt = null;
 
-document.addEventListener("DOMContentLoaded", async () => { await openDatabase(); setupNavigation(); setupActions(); setupFuelForm(); setupNetworkStatus(); registerServiceWorker(); setDefaultDate(); loadFuelHistory(); });
+document.addEventListener("DOMContentLoaded", async () => { await openDatabase(); setupNavigation(); setupActions(); setupFuelForm(); setupNetworkStatus(); registerServiceWorker(); setDefaultDate(); loadFuelHistory(); const bootV06=()=>typeof initV06==="function"?initV06():setTimeout(bootV06,50); bootV06(); });
 function setupNavigation(){document.querySelectorAll(".nav-item").forEach(button=>button.addEventListener("click",()=>showPage(button.dataset.page)));}
 function showPage(pageId){document.querySelectorAll(".page").forEach(page=>page.classList.remove("active"));document.getElementById(pageId)?.classList.add("active");document.querySelectorAll(".nav-item").forEach(item=>item.classList.toggle("active",item.dataset.page===pageId));currentPage=pageId;}
 function setupActions(){document.querySelectorAll('[data-action="fuel"]').forEach(button=>button.addEventListener("click",openFuelModal));document.querySelectorAll('[data-action="service"]').forEach(button=>button.addEventListener("click",()=>window.DRIVE_MAINTENANCE?.openMaintenance()));document.getElementById("startDriveButton")?.addEventListener("click",startDrive);document.getElementById("stopDriveButton")?.addEventListener("click",stopDrive);document.querySelectorAll("[data-close]").forEach(button=>button.addEventListener("click",()=>closeModal(button.dataset.close)));}
