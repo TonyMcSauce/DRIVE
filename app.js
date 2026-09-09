@@ -7,157 +7,64 @@ let driveReloadingForUpdate = false;
 const DRIVE_LIMITS = Object.freeze({ maxOdometer: 99999999, maxLitres: 500, maxCost: 1000000 });
 const escapeHTML = value => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[char]));
 const emitDataChanged = store => window.dispatchEvent(new CustomEvent("drive:datachanged", { detail: { store } }));
-
 function validNumber(value, min, max) { return Number.isFinite(value) && value >= min && value <= max; }
-
-function announce(message) {
-    const status = document.getElementById("networkStatus") || document.getElementById("recentActivity");
-    if (status) status.setAttribute("aria-label", message);
-}
+function announce(message) { const status = document.getElementById("networkStatus") || document.getElementById("recentActivity"); if (status) { status.setAttribute("aria-label", message); status.dataset.message = message; } }
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
         await openDatabase();
         setupNavigation(); setupActions(); setupFuelForm(); setupNetworkStatus(); registerServiceWorker(); setDefaultDate(); loadFuelHistory();
-        const boot = () => typeof initV06 === "function" ? initV06() : setTimeout(boot, 50);
-        boot();
-    } catch (error) {
-        console.error("DRIVE startup failed", error);
-        announce("DRIVE could not finish loading. Your local data has not been changed.");
-    }
+        const boot = () => typeof initV06 === "function" ? initV06() : setTimeout(boot, 50); boot();
+    } catch (error) { console.error("DRIVE startup failed", error); announce("DRIVE could not finish loading. Your local data has not been changed."); }
 });
 
-function setupNavigation() {
-    document.querySelectorAll(".nav-item").forEach(button => button.addEventListener("click", () => showPage(button.dataset.page)));
-}
-
+function setupNavigation() { document.querySelectorAll(".nav-item").forEach(button => button.addEventListener("click", () => showPage(button.dataset.page))); }
 function showPage(pageId) {
     document.querySelectorAll(".page").forEach(page => page.classList.remove("active"));
-    const page = document.getElementById(pageId);
-    page?.classList.add("active");
+    const page = document.getElementById(pageId); page?.classList.add("active");
     document.querySelectorAll(".nav-item").forEach(item => item.classList.toggle("active", item.dataset.page === pageId));
-    currentPage = pageId;
-    page?.focus({ preventScroll: true });
+    currentPage = pageId; page?.focus({ preventScroll: true });
     if (pageId === "dashboardPage") window.DRIVE_V07?.refresh();
     window.DRIVE_A11Y?.refresh();
 }
-
 function setupActions() {
     document.querySelectorAll('[data-action="fuel"]').forEach(button => button.addEventListener("click", openFuelModal));
     document.querySelectorAll('[data-action="service"]').forEach(button => button.addEventListener("click", () => window.DRIVE_MAINTENANCE?.openMaintenance()));
-    document.getElementById("startDriveButton")?.addEventListener("click", startDrive);
-    document.getElementById("stopDriveButton")?.addEventListener("click", stopDrive);
+    document.getElementById("startDriveButton")?.addEventListener("click", startDrive); document.getElementById("stopDriveButton")?.addEventListener("click", stopDrive);
     document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => closeModal(button.dataset.close)));
 }
-
-function openFuelModal() {
-    const modal = document.getElementById("fuelModal");
-    modal?.classList.remove("hidden");
-    const input = document.getElementById("fuelOdometer");
-    if (input) input.value = (document.getElementById("odometerValue")?.textContent || "").replaceAll(",", "").replace(/[^0-9.]/g, "");
-    input?.focus();
-    window.DRIVE_A11Y?.refresh();
-}
-
+function openFuelModal() { const modal = document.getElementById("fuelModal"); modal?.classList.remove("hidden"); const input = document.getElementById("fuelOdometer"); if (input) input.value = (document.getElementById("odometerValue")?.textContent || "").replaceAll(",", "").replace(/[^0-9.]/g, ""); input?.focus(); window.DRIVE_A11Y?.refresh(); }
 function closeModal(id) { document.getElementById(id)?.classList.add("hidden"); }
 function setDefaultDate() { const input = document.getElementById("fuelDate"); if (input) input.value = new Date().toISOString().split("T")[0]; }
 function vehicleRecords(records, vehicleId) { return records.filter(r => !vehicleId || r.vehicleId == null || r.vehicleId === vehicleId); }
 
 async function setupFuelForm() {
-    const form = document.getElementById("fuelForm");
-    if (!form) return;
+    const form = document.getElementById("fuelForm"); if (!form) return;
     form.addEventListener("submit", async event => {
-        event.preventDefault();
-        const active = typeof getActiveVehicle === "function" ? await getActiveVehicle() : null;
-        const odometer = Number(document.getElementById("fuelOdometer").value);
-        const litres = Number(document.getElementById("fuelLitres").value);
-        const cost = Number(document.getElementById("fuelCost").value);
-        const date = document.getElementById("fuelDate").value;
-        if (!validNumber(odometer, 0, DRIVE_LIMITS.maxOdometer) || !validNumber(litres, 0.01, DRIVE_LIMITS.maxLitres) || !validNumber(cost, 0, DRIVE_LIMITS.maxCost) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-            announce("Fuel entry is invalid. Check the values and try again.");
-            return;
-        }
+        event.preventDefault(); const active = typeof getActiveVehicle === "function" ? await getActiveVehicle() : null;
+        const odometer = Number(document.getElementById("fuelOdometer").value), litres = Number(document.getElementById("fuelLitres").value), cost = Number(document.getElementById("fuelCost").value), date = document.getElementById("fuelDate").value;
+        if (!validNumber(odometer, 0, DRIVE_LIMITS.maxOdometer) || !validNumber(litres, 0.01, DRIVE_LIMITS.maxLitres) || !validNumber(cost, 0, DRIVE_LIMITS.maxCost) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { announce("Fuel entry is invalid. Check the values and try again."); return; }
         const records = vehicleRecords(await getAllRecords("fuel"), active?.id).sort((a, b) => Number(b.odometer || 0) - Number(a.odometer || 0));
-        const previous = records.find(r => Number(r.odometer) < odometer) || records[0] || null;
-        const distance = previous && odometer > Number(previous.odometer) ? odometer - Number(previous.odometer) : null;
+        const previous = records.find(r => Number(r.odometer) < odometer) || records[0] || null; const distance = previous && odometer > Number(previous.odometer) ? odometer - Number(previous.odometer) : null;
         await addRecord("fuel", { vehicleId: active?.id, odometer, litres, cost, date, distance, economy: distance ? litres / distance * 100 : null, costPerKm: distance ? cost / distance : null, createdAt: new Date().toISOString(), synced: false });
         if (active && odometer > Number(active.odometer || 0)) { active.odometer = odometer; await putRecord("vehicles", active); }
-        closeModal("fuelModal"); form.reset(); setDefaultDate();
-        await loadFuelHistory(); if (typeof initV06 === "function") await initV06(); window.DRIVE_V07?.refresh(); emitDataChanged("fuel");
+        closeModal("fuelModal"); form.reset(); setDefaultDate(); await loadFuelHistory(); if (typeof initV06 === "function") await initV06(); window.DRIVE_V07?.refresh(); emitDataChanged("fuel");
     });
     ["fuelOdometer", "fuelLitres", "fuelCost"].forEach(id => document.getElementById(id)?.addEventListener("input", previewFuel));
 }
-
 async function previewFuel() {
-    const odometer = Number(document.getElementById("fuelOdometer")?.value), litres = Number(document.getElementById("fuelLitres")?.value);
-    if (!validNumber(odometer, 0, DRIVE_LIMITS.maxOdometer) || !validNumber(litres, 0.01, DRIVE_LIMITS.maxLitres)) return;
-    const active = typeof getActiveVehicle === "function" ? await getActiveVehicle() : null;
-    const previous = vehicleRecords(await getAllRecords("fuel"), active?.id).filter(r => Number(r.odometer) < odometer).sort((a, b) => Number(b.odometer) - Number(a.odometer))[0];
-    if (!previous) return;
-    const distance = odometer - Number(previous.odometer);
-    if (distance <= 0) return;
-    document.getElementById("fuelCalculation")?.classList.remove("hidden");
-    const output = document.getElementById("calculatedEconomy");
-    if (output) output.textContent = (litres / distance * 100).toFixed(2);
+    const odometer = Number(document.getElementById("fuelOdometer")?.value), litres = Number(document.getElementById("fuelLitres")?.value); if (!validNumber(odometer, 0, DRIVE_LIMITS.maxOdometer) || !validNumber(litres, 0.01, DRIVE_LIMITS.maxLitres)) return;
+    const active = typeof getActiveVehicle === "function" ? await getActiveVehicle() : null; const previous = vehicleRecords(await getAllRecords("fuel"), active?.id).filter(r => Number(r.odometer) < odometer).sort((a, b) => Number(b.odometer) - Number(a.odometer))[0]; if (!previous) return;
+    const distance = odometer - Number(previous.odometer); if (distance <= 0) return; document.getElementById("fuelCalculation")?.classList.remove("hidden"); const output = document.getElementById("calculatedEconomy"); if (output) output.textContent = (litres / distance * 100).toFixed(2);
 }
-
 async function loadFuelHistory() {
-    const container = document.getElementById("fuelHistory");
-    if (!container) return;
-    const active = typeof getActiveVehicle === "function" ? await getActiveVehicle() : null;
-    const records = vehicleRecords(await getAllRecords("fuel"), active?.id).sort((a, b) => Number(b.odometer || 0) - Number(a.odometer || 0));
+    const container = document.getElementById("fuelHistory"); if (!container) return; const active = typeof getActiveVehicle === "function" ? await getActiveVehicle() : null; const records = vehicleRecords(await getAllRecords("fuel"), active?.id).sort((a, b) => Number(b.odometer || 0) - Number(a.odometer || 0));
     container.innerHTML = records.slice(0, 20).map(r => `<article class="activity"><div class="activity-icon fuel" aria-hidden="true">⛽</div><div class="activity-info"><strong>${Number(r.litres || 0).toFixed(1)} L</strong><span>P${Number(r.cost || 0).toFixed(2)} · ${Number(r.odometer || 0).toLocaleString()} km</span></div><div class="activity-value">${r.economy ? `${Number(r.economy).toFixed(2)} L/100` : "—"}</div></article>`).join("");
 }
-
-function startDrive() {
-    if (!navigator.geolocation) { announce("GPS is not supported by this browser."); return; }
-    if (tripActive) return;
-    tripActive = true; tripStartedAt = Date.now(); GPS.start();
-    document.getElementById("tripLiveCard")?.classList.remove("hidden");
-    const button = document.getElementById("startDriveButton"); if (button) button.textContent = "DRIVING";
-    showPage("tripsPage"); tripTimer = setInterval(updateTripTimer, 1000);
-}
-
-async function stopDrive() {
-    if (!tripActive) return;
-    GPS.stop(); clearInterval(tripTimer);
-    const endedAt = Date.now(); const active = typeof getActiveVehicle === "function" ? await getActiveVehicle() : null; const distance = Number(GPS.distance || 0);
-    await addRecord("trips", { vehicleId: active?.id, startTime: new Date(tripStartedAt).toISOString(), endTime: new Date(endedAt).toISOString(), distance, duration: endedAt - tripStartedAt, points: GPS.points, createdAt: new Date().toISOString(), synced: false });
-    tripActive = false; document.getElementById("tripLiveCard")?.classList.add("hidden");
-    const button = document.getElementById("startDriveButton"); if (button) button.innerHTML = '<span class="action-icon" aria-hidden="true">●</span><span>START DRIVE</span>';
-    announce(`Trip saved: ${distance.toFixed(2)} kilometres.`);
-    GPS.points = []; GPS.distance = 0;
-    if (typeof initV06 === "function") await initV06(); window.DRIVE_V07?.refresh(); emitDataChanged("trips");
-}
-
-function updateTripTimer() {
-    if (!tripStartedAt) return;
-    const seconds = Math.floor((Date.now() - tripStartedAt) / 1000), minutes = Math.floor(seconds / 60), remaining = seconds % 60;
-    const output = document.getElementById("liveDuration"); if (output) output.textContent = `${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`;
-}
-
-document.addEventListener("gpsupdate", event => {
-    const { point, distance } = event.detail; const d = document.getElementById("liveDistance"), a = document.getElementById("liveAccuracy");
-    if (d) d.textContent = `${distance.toFixed(2)} km`; if (a) a.textContent = `GPS ±${Math.round(point.accuracy)} m`;
-});
-
-function setupNetworkStatus() {
-    const update = () => { const s = document.getElementById("networkStatus"), t = document.getElementById("networkText"); if (navigator.onLine) s?.classList.add("hidden"); else { s?.classList.remove("hidden"); if (t) t.textContent = "Offline — data saved locally"; } };
-    window.addEventListener("online", update); window.addEventListener("offline", update); update();
-}
-
-async function registerServiceWorker() {
-    if (!("serviceWorker" in navigator)) return;
-    try {
-        const registration = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
-        navigator.serviceWorker.addEventListener("controllerchange", () => { if (driveReloadingForUpdate) return; driveReloadingForUpdate = true; window.location.reload(); });
-        const check = () => registration.update().catch(() => {});
-        document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check(); });
-        setTimeout(check, 1000);
-    } catch (error) { console.error("DRIVE service worker registration failed", error); }
-}
-
-(function loadDriveModules() {
-    const load = src => new Promise((resolve, reject) => { const s = document.createElement("script"); s.src = `./${src}?v=0.8`; s.onload = resolve; s.onerror = reject; document.head.appendChild(s); });
-    load("maintenance.js").then(() => load("data-tools.js")).then(() => load("v0.6.js")).then(() => load("insights.js")).then(() => load("v0.7.js")).then(() => load("accessibility.js")).then(() => load("vehicle-settings.js")).catch(error => console.error("DRIVE v0.8 module load failed", error));
-})();
+function startDrive() { if (!navigator.geolocation) { announce("GPS is not supported by this browser."); return; } if (tripActive) return; tripActive = true; tripStartedAt = Date.now(); GPS.start(); document.getElementById("tripLiveCard")?.classList.remove("hidden"); const button = document.getElementById("startDriveButton"); if (button) button.textContent = "DRIVING"; showPage("tripsPage"); tripTimer = setInterval(updateTripTimer, 1000); }
+async function stopDrive() { if (!tripActive) return; GPS.stop(); clearInterval(tripTimer); const endedAt = Date.now(); const active = typeof getActiveVehicle === "function" ? await getActiveVehicle() : null; const distance = Number(GPS.distance || 0); await addRecord("trips", { vehicleId: active?.id, startTime: new Date(tripStartedAt).toISOString(), endTime: new Date(endedAt).toISOString(), distance, duration: endedAt - tripStartedAt, points: GPS.points, createdAt: new Date().toISOString(), synced: false }); tripActive = false; document.getElementById("tripLiveCard")?.classList.add("hidden"); const button = document.getElementById("startDriveButton"); if (button) button.innerHTML = '<span class="action-icon" aria-hidden="true">●</span><span>START DRIVE</span>'; announce(`Trip saved: ${distance.toFixed(2)} kilometres.`); GPS.points = []; GPS.distance = 0; if (typeof initV06 === "function") await initV06(); window.DRIVE_V07?.refresh(); emitDataChanged("trips"); }
+function updateTripTimer() { if (!tripStartedAt) return; const seconds = Math.floor((Date.now() - tripStartedAt) / 1000), minutes = Math.floor(seconds / 60), remaining = seconds % 60; const output = document.getElementById("liveDuration"); if (output) output.textContent = `${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`; }
+document.addEventListener("gpsupdate", event => { const { point, distance } = event.detail; const d = document.getElementById("liveDistance"), a = document.getElementById("liveAccuracy"); if (d) d.textContent = `${distance.toFixed(2)} km`; if (a) a.textContent = `GPS ±${Math.round(point.accuracy)} m`; });
+function setupNetworkStatus() { const update = () => { const s = document.getElementById("networkStatus"), t = document.getElementById("networkText"); if (navigator.onLine) s?.classList.add("hidden"); else { s?.classList.remove("hidden"); if (t) t.textContent = "Offline — data saved locally"; } }; window.addEventListener("online", update); window.addEventListener("offline", update); update(); }
+async function registerServiceWorker() { if (!("serviceWorker" in navigator)) return; try { const registration = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }); navigator.serviceWorker.addEventListener("controllerchange", () => { if (driveReloadingForUpdate) return; driveReloadingForUpdate = true; window.location.reload(); }); const check = () => registration.update().catch(() => {}); document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check(); }); setTimeout(check, 1000); } catch (error) { console.error("DRIVE service worker registration failed", error); } }
+(function loadDriveModules() { const load = src => new Promise((resolve, reject) => { const s = document.createElement("script"); s.src = `./${src}?v=0.8`; s.onload = resolve; s.onerror = reject; document.head.appendChild(s); }); load("maintenance.js").then(() => load("data-tools.js")).then(() => load("v0.6.js")).then(() => load("insights.js")).then(() => load("v0.7.js")).then(() => load("accessibility.js")).then(() => load("vehicle-settings.js")).then(() => load("performance.js")).catch(error => console.error("DRIVE v0.8 module load failed", error)); })();
