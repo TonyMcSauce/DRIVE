@@ -1,4 +1,4 @@
-/* DRIVE v0.31 — Maintenance + Service Intelligence */
+/* DRIVE v0.32 — Maintenance + Service Intelligence */
 (()=>{
 "use strict";
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -22,10 +22,22 @@ async function intelligence(){
  return{vehicle,records,latest,scheduled,status:overdue?'overdue':dueSoon?'due-soon':'ok',kmRemaining,daysRemaining};
 }
 function ensureModal(){
- let m=document.getElementById('maintenanceModal');if(m)return m;
- m=document.createElement('div');m.id='maintenanceModal';m.className='modal hidden';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');m.setAttribute('aria-labelledby','maintenance-modal-title');
- m.innerHTML=`<div class="modal-sheet"><div class="modal-handle" aria-hidden="true"></div><div class="modal-header"><div><span class="eyebrow">SERVICE RECORD</span><h2 id="maintenance-modal-title">Maintenance</h2></div><button type="button" class="modal-close" data-close-maintenance aria-label="Close maintenance">×</button></div><form id="maintenanceForm"><label for="maintenanceTitle">Service / repair<input id="maintenanceTitle" required maxlength="100" placeholder="Oil service, brakes, battery…"></label><label for="maintenanceDescription">Notes<textarea id="maintenanceDescription" rows="3" maxlength="500" placeholder="What was done?"></textarea></label><label for="maintenanceOdometer">Odometer<div class="input-unit"><input id="maintenanceOdometer" type="number" min="0" step="1" inputmode="numeric" required><span aria-hidden="true">KM</span></div></label><label for="maintenanceCost">Cost<div class="input-unit"><span aria-hidden="true">P</span><input id="maintenanceCost" type="number" min="0" step="0.01" inputmode="decimal" value="0"></div></label><label for="maintenanceDate">Date<input id="maintenanceDate" type="date" required></label><div class="form-grid"><div><label for="maintenanceIntervalKm">Next service interval (km)</label><input id="maintenanceIntervalKm" type="number" min="0" step="1" inputmode="numeric"><small>Optional</small></div><div><label for="maintenanceIntervalMonths">Next service interval (months)</label><input id="maintenanceIntervalMonths" type="number" min="0" step="1" inputmode="numeric"><small>Optional</small></div></div><button class="submit-button" type="submit">SAVE SERVICE</button></form><div id="maintenanceHistory" class="tool-history"></div></div>`;
- document.body.appendChild(m);m.querySelector('[data-close-maintenance]').onclick=()=>m.classList.add('hidden');m.addEventListener('click',e=>{if(e.target===m)m.classList.add('hidden')});return m;
+ let m=document.getElementById('maintenanceModal');
+ if(!m){
+  m=document.createElement('div');m.id='maintenanceModal';m.className='modal hidden';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');m.setAttribute('aria-labelledby','maintenance-modal-title');
+  m.innerHTML=`<div class="modal-sheet"><div class="modal-handle" aria-hidden="true"></div><div class="modal-header"><div><span class="eyebrow">SERVICE RECORD</span><h2 id="maintenance-modal-title">Maintenance</h2></div><button type="button" class="modal-close" data-close-maintenance aria-label="Close maintenance">×</button></div><form id="maintenanceForm"><label for="maintenanceTitle">Service / repair<input id="maintenanceTitle" required maxlength="100" placeholder="Oil service, brakes, battery…"></label><label for="maintenanceDescription">Notes<textarea id="maintenanceDescription" rows="3" maxlength="500" placeholder="What was done?"></textarea></label><label for="maintenanceOdometer">Odometer<div class="input-unit"><input id="maintenanceOdometer" type="number" min="0" step="1" inputmode="numeric" required><span aria-hidden="true">KM</span></div></label><label for="maintenanceCost">Cost<div class="input-unit"><span aria-hidden="true">P</span><input id="maintenanceCost" type="number" min="0" step="0.01" inputmode="decimal" value="0"></div></label><label for="maintenanceDate">Date<input id="maintenanceDate" type="date" required></label><div class="form-grid"><div><label for="maintenanceIntervalKm">Next service interval (km)</label><input id="maintenanceIntervalKm" type="number" min="0" step="1" inputmode="numeric"><small>Optional</small></div><div><label for="maintenanceIntervalMonths">Next service interval (months)</label><input id="maintenanceIntervalMonths" type="number" min="0" step="1" inputmode="numeric"><small>Optional</small></div></div><button class="submit-button" type="submit">SAVE SERVICE</button></form><div id="maintenanceHistory" class="tool-history"></div></div>`;
+  document.body.appendChild(m);
+ } else {
+  /* The original static modal had no history container. Add it without replacing the form. */
+  const sheet=m.querySelector('.modal-sheet');
+  if(sheet&&!sheet.querySelector('#maintenanceHistory')){
+   const history=document.createElement('div');history.id='maintenanceHistory';history.className='tool-history';sheet.appendChild(history);
+  }
+ }
+ const close=m.querySelector('[data-close-maintenance]');
+ if(close&&!close.dataset.bound){close.dataset.bound='1';close.onclick=()=>m.classList.add('hidden')}
+ if(!m.dataset.overlayBound){m.dataset.overlayBound='1';m.addEventListener('click',e=>{if(e.target===m)m.classList.add('hidden')})}
+ return m;
 }
 async function renderHistory(m){
  const list=m?.querySelector('#maintenanceHistory');if(!list)return;const v=await getActiveVehicle();
@@ -43,11 +55,11 @@ async function saveMaintenance(e){
  try{
    const id=await addRecord('maintenance',record);record.id=id;
    if(odometer>Number(vehicle.odometer||0)){vehicle.odometer=odometer;await putRecord('vehicles',vehicle)}
-   const modal=document.getElementById('maintenanceModal');await renderHistory(modal);modal?.classList.add('hidden');form.reset();const d=document.getElementById('maintenanceDate');if(d)d.value=today();
+   const modal=ensureModal();await renderHistory(modal);modal?.classList.add('hidden');form.reset();const d=document.getElementById('maintenanceDate');if(d)d.value=today();
    notify(`Service saved: ${title}.`);window.dispatchEvent(new CustomEvent('drive:datachanged',{detail:{store:'maintenance',id}}));
  }catch(error){console.error('DRIVE maintenance save failed',error);notify('Service could not be saved. Check local storage and try again.')}
 }
-function mountForm(){const m=ensureModal(),form=m.querySelector('#maintenanceForm');if(!form.dataset.driveBound){form.dataset.driveBound='1';form.addEventListener('submit',saveMaintenance)}Promise.resolve(getActiveVehicle()).then(v=>{const o=m.querySelector('#maintenanceOdometer');if(o&&!o.value)o.value=v?.odometer||'';const d=m.querySelector('#maintenanceDate');if(d&&!d.value)d.value=today()});return m}
+function mountForm(){const m=ensureModal(),form=m.querySelector('#maintenanceForm');if(!form){notify('Maintenance form is unavailable. Reload DRIVE and try again.');return m}if(!form.dataset.driveBound){form.dataset.driveBound='1';form.addEventListener('submit',saveMaintenance)}Promise.resolve(getActiveVehicle()).then(v=>{const o=m.querySelector('#maintenanceOdometer');if(o&&!o.value)o.value=v?.odometer||'';const d=m.querySelector('#maintenanceDate');if(d&&!d.value)d.value=today()});return m}
 async function openMaintenance(){const m=mountForm();await renderHistory(m);m.classList.remove('hidden');m.querySelector('#maintenanceTitle')?.focus()}
 async function refresh(){
  const d=await intelligence();document.getElementById('serviceIntel')?.remove();const dashboard=document.getElementById('dashboardPage'),anchor=dashboard?.querySelector('.metric-grid');if(!anchor)return;
