@@ -11,6 +11,22 @@
         "[tabindex]:not([tabindex=\"-1\"])"
     ].join(",");
 
+    function installAccessibilityCSS() {
+        if (document.getElementById("drive-a11y-css")) return;
+        const style = document.createElement("style");
+        style.id = "drive-a11y-css";
+        style.textContent = `
+            .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+            .skip-link{position:fixed;left:12px;top:8px;z-index:1000;padding:10px 14px;border-radius:9px;background:var(--accent);color:#10120d;font-weight:800;transform:translateY(-160%);transition:transform .15s ease}
+            .skip-link:focus{transform:translateY(0);outline:3px solid var(--text);outline-offset:3px}
+            :where(button,a,input,select,textarea):focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+            :where(button,input,select,textarea){touch-action:manipulation}
+            .nav-item,.action-button,.large-action,.submit-button,.stop-button,.icon-button,.modal-close,.settings-list button{min-width:44px}
+            @media (prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+        `;
+        document.head.appendChild(style);
+    }
+
     function setNavigationState() {
         document.querySelectorAll(".nav-item").forEach(button => {
             const active = button.classList.contains("active");
@@ -31,13 +47,9 @@
     }
 
     function enhance() {
+        installAccessibilityCSS();
         setNavigationState();
-        document.querySelectorAll(".modal, .update-toast").forEach(enhanceModal);
-        document.querySelectorAll("button, input, select, textarea, a").forEach(element => {
-            if (element.tagName === "BUTTON" && !element.getAttribute("type") && element.closest("form")) {
-                element.setAttribute("type", "submit");
-            }
-        });
+        document.querySelectorAll(".modal").forEach(enhanceModal);
     }
 
     let lastFocused = null;
@@ -46,9 +58,7 @@
         const button = event.target.closest("button");
         if (!button) return;
 
-        if (button.classList.contains("nav-item")) {
-            requestAnimationFrame(setNavigationState);
-        }
+        if (button.classList.contains("nav-item")) requestAnimationFrame(setNavigationState);
 
         const modal = button.closest(".modal");
         if (modal && !modal.classList.contains("hidden")) lastFocused = button;
@@ -83,9 +93,9 @@
         }
     });
 
-    const observer = new MutationObserver(enhance);
     document.addEventListener("DOMContentLoaded", () => {
         enhance();
+        const observer = new MutationObserver(enhance);
         observer.observe(document.body, { childList: true, subtree: true });
     });
 
