@@ -82,12 +82,17 @@
         window.DRIVE_A11Y?.refresh();
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
+    function bind() {
         document.getElementById("settingsButton")?.addEventListener("click", open);
         document.querySelectorAll("#morePage .settings-list button").forEach(button => {
-            if (button.textContent.trim().startsWith("Settings")) button.addEventListener("click", open);
+            if (button.textContent.trim().startsWith("Settings") && !button.dataset.vehicleSettingsBound) {
+                button.dataset.vehicleSettingsBound = "1";
+                button.addEventListener("click", open);
+            }
         });
-    });
+    }
 
     window.DRIVE_VEHICLE_SETTINGS = { open, close };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind, { once: true });
+    else bind();
 })();
