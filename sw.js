@@ -3,7 +3,7 @@ const CACHE_VERSION = "drive-v0.8";
 const APP_SHELL = [
     "./", "./index.html", "./styles.css", "./app.js", "./db.js", "./gps.js",
     "./maintenance.js", "./data-tools.js", "./v0.6.js", "./insights.js", "./v0.7.js",
-    "./accessibility.js", "./vehicle-settings.js",
+    "./accessibility.js", "./vehicle-settings.js", "./performance.js",
     "./manifest.json", "./icons/icon.svg"
 ];
 
@@ -22,8 +22,7 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
     const request = event.request;
     if (request.method !== "GET") return;
-
-    // HTML/JS/CSS must check the network so deployed fixes are not silently stale.
+    // HTML/JS/CSS check the network first so deployed fixes are not silently stale.
     const updateSensitive = request.mode === "navigate" || request.destination === "script" || request.destination === "style";
     event.respondWith(
         updateSensitive
