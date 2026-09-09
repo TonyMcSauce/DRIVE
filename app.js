@@ -3,7 +3,23 @@ let tripActive = false;
 let tripTimer = null;
 let tripStartedAt = null;
 
-document.addEventListener("DOMContentLoaded", async () => { await openDatabase(); setupNavigation(); setupActions(); setupFuelForm(); setupNetworkStatus(); registerServiceWorker(); setDefaultDate(); loadFuelHistory(); const bootV06=()=>typeof initV06==="function"?initV06():setTimeout(bootV06,50); bootV06(); });
+let driveReloadingForUpdate = false;
+
+
+document.addEventListener("DOMContentLoaded", async () => {
+    await openDatabase();
+    setupNavigation();
+    setupActions();
+    setupFuelForm();
+    setupNetworkStatus();
+    registerServiceWorker();
+    setDefaultDate();
+    loadFuelHistory();
+
+    const bootV06 = () => typeof initV06 === "function" ? initV06() : setTimeout(bootV06, 50);
+    bootV06();
+});
+
 function setupNavigation(){document.querySelectorAll(".nav-item").forEach(button=>button.addEventListener("click",()=>showPage(button.dataset.page)));}
 function showPage(pageId){document.querySelectorAll(".page").forEach(page=>page.classList.remove("active"));document.getElementById(pageId)?.classList.add("active");document.querySelectorAll(".nav-item").forEach(item=>item.classList.toggle("active",item.dataset.page===pageId));currentPage=pageId;}
 function setupActions(){document.querySelectorAll('[data-action="fuel"]').forEach(button=>button.addEventListener("click",openFuelModal));document.querySelectorAll('[data-action="service"]').forEach(button=>button.addEventListener("click",()=>window.DRIVE_MAINTENANCE?.openMaintenance()));document.getElementById("startDriveButton")?.addEventListener("click",startDrive);document.getElementById("stopDriveButton")?.addEventListener("click",stopDrive);document.querySelectorAll("[data-close]").forEach(button=>button.addEventListener("click",()=>closeModal(button.dataset.close)));}
@@ -19,6 +35,28 @@ async function stopDrive(){if(!tripActive)return;GPS.stop();clearInterval(tripTi
 function updateTripTimer(){if(!tripStartedAt)return;const seconds=Math.floor((Date.now()-tripStartedAt)/1000),minutes=Math.floor(seconds/60),remaining=seconds%60;const output=document.getElementById("liveDuration");if(output)output.textContent=`${String(minutes).padStart(2,"0")}:${String(remaining).padStart(2,"0")}`;}
 document.addEventListener("gpsupdate",event=>{const{point,distance}=event.detail;const d=document.getElementById("liveDistance"),a=document.getElementById("liveAccuracy");if(d)d.textContent=`${distance.toFixed(2)} km`;if(a)a.textContent=`GPS ±${Math.round(point.accuracy)} m`;});
 function setupNetworkStatus(){const update=()=>{const s=document.getElementById("networkStatus"),t=document.getElementById("networkText");if(navigator.onLine)s?.classList.add("hidden");else{s?.classList.remove("hidden");if(t)t.textContent="Offline — data saved locally";}};window.addEventListener("online",update);window.addEventListener("offline",update);update();}
-async function registerServiceWorker(){if(!( "serviceWorker" in navigator))return;try{const registration=await navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"});document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")registration.update();});registration.addEventListener("updatefound",()=>{const worker=registration.installing;worker?.addEventListener("statechange",()=>{if(worker.state==="installed"&&navigator.serviceWorker.controller)showUpdatePrompt(worker);});});}catch(error){console.error("Service worker registration failed:",error);}}
-function showUpdatePrompt(worker){document.getElementById("updateModal")?.classList.remove("hidden");const button=document.getElementById("updateButton");if(button)button.onclick=()=>{worker.postMessage({type:"SKIP_WAITING"});window.location.reload();};}
+
+async function registerServiceWorker(){
+    if(!("serviceWorker" in navigator))return;
+    try{
+        const registration=await navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"});
+
+        navigator.serviceWorker.addEventListener("controllerchange",()=>{
+            if(driveReloadingForUpdate)return;
+            driveReloadingForUpdate=true;
+            window.location.reload();
+        });
+
+        const checkForUpdate=()=>registration.update().catch(()=>{});
+        document.addEventListener("visibilitychange",()=>{
+            if(document.visibilityState==="visible")checkForUpdate();
+        });
+
+        // Check once shortly after startup as well as when the page becomes visible.
+        setTimeout(checkForUpdate,1500);
+    }catch(error){
+        console.error("Service worker registration failed:",error);
+    }
+}
+
 (function loadDriveModules(){const load=src=>new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=`./${src}?v=0.6`;s.onload=resolve;s.onerror=reject;document.head.appendChild(s);});load("maintenance.js").then(()=>load("data-tools.js")).then(()=>load("v0.6.js")).then(()=>load("insights.js")).catch(error=>console.error("DRIVE v0.6 module load failed:",error));})();
