@@ -2,824 +2,95 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1, viewport-fit=cover"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#0b0d0f">
-
-    <meta
-        name="description"
-        content="DRIVE — Personal Vehicle Intelligence"
-    >
-
+    <meta name="description" content="DRIVE — Personal Vehicle Intelligence">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="icons/icon.svg">
-
     <title>DRIVE — Vehicle Intelligence</title>
-
     <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
-
 <div id="app">
-
-    <!-- =========================================
-         TOP BAR
-    ========================================== -->
-
-    <header class="topbar">
-
-        <div>
-            <div class="brand">DRIVE</div>
-            <div class="vehicle-name">LEXUS IS250 · 2007</div>
-        </div>
-
-        <button
-            class="icon-button"
-            id="settingsButton"
-            aria-label="Settings"
-        >
-            ⋯
-        </button>
-
-    </header>
-
-
-    <!-- =========================================
-         OFFLINE / UPDATE STATUS
-    ========================================== -->
-
-    <div id="networkStatus" class="status-bar hidden">
-        <span class="status-dot"></span>
-        <span id="networkText">Offline mode</span>
+<header class="topbar">
+    <div><div class="brand">DRIVE</div><div class="vehicle-name">LEXUS IS250 · 2007</div></div>
+    <button class="icon-button" id="settingsButton" aria-label="Settings">⋯</button>
+</header>
+<div id="networkStatus" class="status-bar hidden"><span class="status-dot"></span><span id="networkText">Offline mode</span></div>
+<main>
+<section id="dashboardPage" class="page active">
+    <div class="hero"><div class="eyebrow">CURRENT ODOMETER</div><div id="odometerValue" class="odometer">128,421</div><div class="unit">KM</div></div>
+    <div class="metric-grid">
+        <article class="metric-card"><span class="metric-label">FUEL ECONOMY</span><strong id="fuelEconomy">—</strong><span>L / 100 KM</span></article>
+        <article class="metric-card"><span class="metric-label">COST</span><strong id="costPerKm">—</strong><span>PER KM</span></article>
     </div>
-
-
-    <main>
-
-        <!-- =====================================
-             DASHBOARD
-        ====================================== -->
-
-        <section
-            id="dashboardPage"
-            class="page active"
-        >
-
-            <div class="hero">
-
-                <div class="eyebrow">
-                    CURRENT ODOMETER
-                </div>
-
-                <div
-                    id="odometerValue"
-                    class="odometer"
-                >
-                    128,421
-                </div>
-
-                <div class="unit">
-                    KM
-                </div>
-
-            </div>
-
-
-            <!-- METRICS -->
-
-            <div class="metric-grid">
-
-                <article class="metric-card">
-
-                    <span class="metric-label">
-                        FUEL ECONOMY
-                    </span>
-
-                    <strong id="fuelEconomy">
-                        8.47
-                    </strong>
-
-                    <span>
-                        L / 100 KM
-                    </span>
-
-                </article>
-
-
-                <article class="metric-card">
-
-                    <span class="metric-label">
-                        COST
-                    </span>
-
-                    <strong id="costPerKm">
-                        P1.24
-                    </strong>
-
-                    <span>
-                        PER KM
-                    </span>
-
-                </article>
-
-            </div>
-
-
-            <!-- HEALTH -->
-
-            <section class="panel">
-
-                <div class="panel-header">
-
-                    <div>
-                        <span class="eyebrow">
-                            VEHICLE HEALTH
-                        </span>
-
-                        <h2>
-                            <span id="healthScore">87</span>
-                            <small>/ 100</small>
-                        </h2>
-                    </div>
-
-                    <span class="health-status">
-                        GOOD
-                    </span>
-
-                </div>
-
-
-                <div class="health-bar">
-
-                    <div
-                        id="healthBar"
-                        style="width: 87%"
-                    ></div>
-
-                </div>
-
-            </section>
-
-
-            <!-- QUICK ACTIONS -->
-
-            <section>
-
-                <div class="section-title">
-                    QUICK ACTIONS
-                </div>
-
-
-                <div class="quick-actions">
-
-                    <button
-                        class="action-button primary"
-                        data-action="fuel"
-                    >
-                        <span class="action-icon">＋</span>
-                        <span>FUEL</span>
-                    </button>
-
-
-                    <button
-                        class="action-button"
-                        data-action="service"
-                    >
-                        <span class="action-icon">＋</span>
-                        <span>SERVICE</span>
-                    </button>
-
-
-                    <button
-                        class="action-button drive-button"
-                        id="startDriveButton"
-                    >
-                        <span class="action-icon">●</span>
-                        <span>START DRIVE</span>
-                    </button>
-
-                </div>
-
-            </section>
-
-
-            <!-- RECENT ACTIVITY -->
-
-            <section>
-
-                <div class="section-title">
-                    RECENT ACTIVITY
-                </div>
-
-                <div
-                    id="recentActivity"
-                    class="activity-list"
-                >
-
-                    <article class="activity">
-
-                        <div class="activity-icon fuel">
-                            ⛽
-                        </div>
-
-                        <div class="activity-info">
-
-                            <strong>
-                                Fuel
-                            </strong>
-
-                            <span>
-                                50.2 L · P745
-                            </span>
-
-                        </div>
-
-                        <div class="activity-value">
-                            128,421 km
-                        </div>
-
-                    </article>
-
-
-                    <article class="activity">
-
-                        <div class="activity-icon trip">
-                            →
-                        </div>
-
-                        <div class="activity-info">
-
-                            <strong>
-                                Jwaneng → Work
-                            </strong>
-
-                            <span>
-                                9.8 km · 18 min
-                            </span>
-
-                        </div>
-
-                        <div class="activity-value">
-                            P13.10
-                        </div>
-
-                    </article>
-
-
-                    <article class="activity">
-
-                        <div class="activity-icon service">
-                            🔧
-                        </div>
-
-                        <div class="activity-info">
-
-                            <strong>
-                                Engine service
-                            </strong>
-
-                            <span>
-                                Oil + filter
-                            </span>
-
-                        </div>
-
-                        <div class="activity-value">
-                            P1,240
-                        </div>
-
-                    </article>
-
-                </div>
-
-            </section>
-
-        </section>
-
-
-        <!-- =====================================
-             TRIPS PAGE
-        ====================================== -->
-
-        <section
-            id="tripsPage"
-            class="page"
-        >
-
-            <div class="page-heading">
-
-                <span class="eyebrow">
-                    VEHICLE MOVEMENT
-                </span>
-
-                <h1>
-                    Trips
-                </h1>
-
-            </div>
-
-
-            <div class="trip-live-card hidden" id="tripLiveCard">
-
-                <div class="live-indicator">
-                    <span></span>
-                    RECORDING
-                </div>
-
-                <div
-                    id="liveDistance"
-                    class="live-distance"
-                >
-                    0.00 km
-                </div>
-
-                <div class="live-meta">
-
-                    <span id="liveDuration">
-                        00:00
-                    </span>
-
-                    <span id="liveAccuracy">
-                        GPS ±--
-                    </span>
-
-                </div>
-
-                <button
-                    id="stopDriveButton"
-                    class="stop-button"
-                >
-                    END DRIVE
-                </button>
-
-            </div>
-
-
-            <div class="empty-state">
-
-                <div class="empty-icon">
-                    ◌
-                </div>
-
-                <h2>
-                    Trip history
-                </h2>
-
-                <p>
-                    Your recorded drives will appear here.
-                </p>
-
-            </div>
-
-        </section>
-
-
-        <!-- =====================================
-             FUEL PAGE
-        ====================================== -->
-
-        <section
-            id="fuelPage"
-            class="page"
-        >
-
-            <div class="page-heading">
-
-                <span class="eyebrow">
-                    FUEL ANALYTICS
-                </span>
-
-                <h1>
-                    Fuel
-                </h1>
-
-            </div>
-
-
-            <div class="fuel-summary">
-
-                <div>
-                    <span>
-                        AVG ECONOMY
-                    </span>
-
-                    <strong>
-                        8.47
-                    </strong>
-
-                    <small>
-                        L/100KM
-                    </small>
-                </div>
-
-
-                <div>
-                    <span>
-                        COST / KM
-                    </span>
-
-                    <strong>
-                        P1.24
-                    </strong>
-
-                    <small>
-                        AVERAGE
-                    </small>
-                </div>
-
-            </div>
-
-
-            <button
-                class="large-action"
-                data-action="fuel"
-            >
-                <span>＋</span>
-                ADD FUEL ENTRY
-            </button>
-
-
-            <div
-                id="fuelHistory"
-                class="history-list"
-            ></div>
-
-        </section>
-
-
-        <!-- =====================================
-             CAR PAGE
-        ====================================== -->
-
-        <section
-            id="carPage"
-            class="page"
-        >
-
-            <div class="page-heading">
-
-                <span class="eyebrow">
-                    VEHICLE
-                </span>
-
-                <h1>
-                    Lexus IS250
-                </h1>
-
-            </div>
-
-
-            <div class="vehicle-card">
-
-                <div class="vehicle-image-placeholder">
-                    IS250
-                </div>
-
-                <div class="vehicle-details">
-
-                    <div>
-                        <span>YEAR</span>
-                        <strong>2007</strong>
-                    </div>
-
-                    <div>
-                        <span>ENGINE</span>
-                        <strong>2.5L V6</strong>
-                    </div>
-
-                    <div>
-                        <span>ODOMETER</span>
-                        <strong>128,421 km</strong>
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <div class="section-title">
-                VEHICLE HEALTH
-            </div>
-
-
-            <div class="health-list">
-
-                <div class="health-row">
-                    <span>Engine</span>
-                    <strong class="good">GOOD</strong>
-                </div>
-
-                <div class="health-row">
-                    <span>Transmission</span>
-                    <strong class="good">GOOD</strong>
-                </div>
-
-                <div class="health-row">
-                    <span>Brakes</span>
-                    <strong class="warning">CHECK SOON</strong>
-                </div>
-
-                <div class="health-row">
-                    <span>Tyres</span>
-                    <strong class="good">GOOD</strong>
-                </div>
-
-            </div>
-
-        </section>
-
-
-        <!-- =====================================
-             MORE PAGE
-        ====================================== -->
-
-        <section
-            id="morePage"
-            class="page"
-        >
-
-            <div class="page-heading">
-
-                <span class="eyebrow">
-                    DRIVE
-                </span>
-
-                <h1>
-                    More
-                </h1>
-
-            </div>
-
-
-            <div class="settings-list">
-
-                <button>
-                    Maintenance
-                    <span>›</span>
-                </button>
-
-                <button>
-                    Expenses
-                    <span>›</span>
-                </button>
-
-                <button>
-                    Documents
-                    <span>›</span>
-                </button>
-
-                <button>
-                    Analytics
-                    <span>›</span>
-                </button>
-
-                <button>
-                    Data & Backup
-                    <span>›</span>
-                </button>
-
-                <button>
-                    Settings
-                    <span>›</span>
-                </button>
-
-            </div>
-
-        </section>
-
-    </main>
-
-
-    <!-- =========================================
-         BOTTOM NAV
-    ========================================== -->
-
-    <nav class="bottom-nav">
-
-        <button
-            class="nav-item active"
-            data-page="dashboardPage"
-        >
-            <span>⌂</span>
-            <small>Home</small>
-        </button>
-
-        <button
-            class="nav-item"
-            data-page="tripsPage"
-        >
-            <span>↗</span>
-            <small>Trips</small>
-        </button>
-
-        <button
-            class="nav-item"
-            data-page="fuelPage"
-        >
-            <span>◉</span>
-            <small>Fuel</small>
-        </button>
-
-        <button
-            class="nav-item"
-            data-page="carPage"
-        >
-            <span>◇</span>
-            <small>Car</small>
-        </button>
-
-        <button
-            class="nav-item"
-            data-page="morePage"
-        >
-            <span>•••</span>
-            <small>More</small>
-        </button>
-
-    </nav>
-
+    <section class="panel"><div class="panel-header"><div><span class="eyebrow">VEHICLE HEALTH</span><h2><span id="healthScore">75</span> <small>/ 100</small></h2></div><span class="health-status">GOOD</span></div><div class="health-bar"><div id="healthBar" style="width:75%"></div></div></section>
+    <section><div class="section-title">QUICK ACTIONS</div><div class="quick-actions">
+        <button class="action-button primary" data-action="fuel"><span class="action-icon">＋</span><span>FUEL</span></button>
+        <button class="action-button" data-action="service"><span class="action-icon">＋</span><span>SERVICE</span></button>
+        <button class="action-button drive-button" id="startDriveButton"><span class="action-icon">●</span><span>START DRIVE</span></button>
+    </div></section>
+    <section><div class="section-title">RECENT ACTIVITY</div><div id="recentActivity" class="activity-list"></div></section>
+</section>
+
+<section id="tripsPage" class="page">
+    <div class="page-heading"><span class="eyebrow">VEHICLE MOVEMENT</span><h1>Trips</h1></div>
+    <div class="trip-live-card hidden" id="tripLiveCard">
+        <div class="live-indicator"><span></span>RECORDING</div><div id="liveDistance" class="live-distance">0.00 km</div>
+        <div class="live-meta"><span id="liveDuration">00:00</span><span id="liveAccuracy">GPS ±--</span></div>
+        <button id="stopDriveButton" class="stop-button">END DRIVE</button>
+    </div>
+    <div id="tripHistory" class="history-list"></div>
+    <div class="empty-state"><div class="empty-icon">◌</div><h2>Trip history</h2><p>Your recorded drives will appear here.</p></div>
+</section>
+
+<section id="fuelPage" class="page">
+    <div class="page-heading"><span class="eyebrow">FUEL ANALYTICS</span><h1>Fuel</h1></div>
+    <div class="fuel-summary">
+        <div><span>AVG ECONOMY</span><strong>—</strong><small>L/100KM</small></div>
+        <div><span>COST / KM</span><strong>—</strong><small>AVERAGE</small></div>
+    </div>
+    <button class="large-action" data-action="fuel"><span>＋</span>ADD FUEL ENTRY</button>
+    <div id="fuelHistory" class="history-list"></div>
+</section>
+
+<section id="carPage" class="page">
+    <div class="page-heading"><span class="eyebrow">VEHICLE</span><h1>Lexus IS250</h1></div>
+    <div class="vehicle-card"><div class="vehicle-image-placeholder">IS250</div><div class="vehicle-details">
+        <div><span>YEAR</span><strong>2007</strong></div><div><span>ENGINE</span><strong>2.5L V6</strong></div><div><span>ODOMETER</span><strong>128,421 km</strong></div>
+    </div></div>
+    <div class="section-title">VEHICLE HEALTH</div>
+    <div class="health-list"><div class="health-row"><span>Engine</span><strong class="good">GOOD</strong></div><div class="health-row"><span>Transmission</span><strong class="good">GOOD</strong></div><div class="health-row"><span>Brakes</span><strong class="warning">CHECK SOON</strong></div><div class="health-row"><span>Tyres</span><strong class="good">GOOD</strong></div></div>
+</section>
+
+<section id="morePage" class="page">
+    <div class="page-heading"><span class="eyebrow">DRIVE</span><h1>More</h1></div>
+    <div class="settings-list"><button>Maintenance <span>›</span></button><button>Expenses <span>›</span></button><button>Documents <span>›</span></button><button>Analytics <span>›</span></button><button>Data &amp; Backup <span>›</span></button><button>Settings <span>›</span></button></div>
+</section>
+</main>
+<nav class="bottom-nav">
+    <button class="nav-item active" data-page="dashboardPage"><span>⌂</span><small>Home</small></button>
+    <button class="nav-item" data-page="tripsPage"><span>↗</span><small>Trips</small></button>
+    <button class="nav-item" data-page="fuelPage"><span>◉</span><small>Fuel</small></button>
+    <button class="nav-item" data-page="carPage"><span>◇</span><small>Car</small></button>
+    <button class="nav-item" data-page="morePage"><span>•••</span><small>More</small></button>
+</nav>
 </div>
 
+<div id="fuelModal" class="modal hidden"><div class="modal-sheet"><div class="modal-handle"></div><div class="modal-header"><div><span class="eyebrow">NEW ENTRY</span><h2>Fuel</h2></div><button class="modal-close" data-close="fuelModal">×</button></div>
+<form id="fuelForm">
+<label>Odometer<div class="input-unit"><input id="fuelOdometer" type="number" inputmode="decimal" placeholder="128421" required><span>KM</span></div></label>
+<label>Litres<div class="input-unit"><input id="fuelLitres" type="number" inputmode="decimal" step="0.01" placeholder="50.20" required><span>L</span></div></label>
+<label>Total cost<div class="input-unit"><span>P</span><input id="fuelCost" type="number" inputmode="decimal" step="0.01" placeholder="745.00" required></div></label>
+<label>Date<input id="fuelDate" type="date" required></label>
+<div id="fuelCalculation" class="calculation-preview hidden"><span>CALCULATED</span><strong id="calculatedEconomy">—</strong><small>L/100 KM</small></div>
+<button type="submit" class="submit-button">SAVE FUEL ENTRY</button>
+</form></div></div>
 
-<!-- =========================================
-     FUEL MODAL
-========================================== -->
-
-<div
-    id="fuelModal"
-    class="modal hidden"
->
-
-    <div class="modal-sheet">
-
-        <div class="modal-handle"></div>
-
-        <div class="modal-header">
-
-            <div>
-                <span class="eyebrow">
-                    NEW ENTRY
-                </span>
-
-                <h2>
-                    Fuel
-                </h2>
-            </div>
-
-            <button
-                class="modal-close"
-                data-close="fuelModal"
-            >
-                ×
-            </button>
-
-        </div>
-
-
-        <form id="fuelForm">
-
-            <label>
-                Odometer
-
-                <div class="input-unit">
-
-                    <input
-                        id="fuelOdometer"
-                        type="number"
-                        inputmode="decimal"
-                        placeholder="128421"
-                        required
-                    >
-
-                    <span>KM</span>
-
-                </div>
-
-            </label>
-
-
-            <label>
-                Litres
-
-                <div class="input-unit">
-
-                    <input
-                        id="fuelLitres"
-                        type="number"
-                        inputmode="decimal"
-                        step="0.01"
-                        placeholder="50.20"
-                        required
-                    >
-
-                    <span>L</span>
-
-                </div>
-
-            </label>
-
-
-            <label>
-                Total cost
-
-                <div class="input-unit">
-
-                    <span>P</span>
-
-                    <input
-                        id="fuelCost"
-                        type="number"
-                        inputmode="decimal"
-                        step="0.01"
-                        placeholder="745.00"
-                        required
-                    >
-
-                </div>
-
-            </label>
-
-
-            <label>
-                Date
-
-                <input
-                    id="fuelDate"
-                    type="date"
-                    required
-                >
-
-            </label>
-
-
-            <div
-                id="fuelCalculation"
-                class="calculation-preview hidden"
-            >
-
-                <span>CALCULATED</span>
-
-                <strong id="calculatedEconomy">
-                    —
-                </strong>
-
-                <small>
-                    L/100 KM
-                </small>
-
-            </div>
-
-
-            <button
-                type="submit"
-                class="submit-button"
-            >
-                SAVE FUEL ENTRY
-            </button>
-
-        </form>
-
-    </div>
-
-</div>
-
-
-<!-- =========================================
-     UPDATE MODAL
-========================================== -->
-
-<div
-    id="updateModal"
-    class="update-toast hidden"
->
-
-    <div>
-
-        <strong>
-            DRIVE updated
-        </strong>
-
-        <span>
-            A new version is ready.
-        </span>
-
-    </div>
-
-    <button id="updateButton">
-        UPDATE
-    </button>
-
-</div>
-
-
+<div id="updateModal" class="update-toast hidden"><div><strong>DRIVE updated</strong><span>A new version is ready.</span></div><button id="updateButton">UPDATE</button></div>
 <script src="db.js"></script>
 <script src="gps.js"></script>
 <script src="app.js"></script>
-
+<script src="v0.6.js"></script>
 </body>
 </html>
