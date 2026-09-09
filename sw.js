@@ -1,8 +1,9 @@
-const CACHE_VERSION = "drive-v0.7";
+const CACHE_VERSION = "drive-v0.8";
 
 const APP_SHELL = [
     "./", "./index.html", "./styles.css", "./app.js", "./db.js", "./gps.js",
     "./maintenance.js", "./data-tools.js", "./v0.6.js", "./insights.js", "./v0.7.js",
+    "./accessibility.js", "./vehicle-settings.js",
     "./manifest.json", "./icons/icon.svg"
 ];
 
@@ -22,14 +23,15 @@ self.addEventListener("fetch", event => {
     const request = event.request;
     if (request.method !== "GET") return;
 
-    const sensitive = request.mode === "navigate" || request.destination === "script" || request.destination === "style";
+    // HTML/JS/CSS must check the network so deployed fixes are not silently stale.
+    const updateSensitive = request.mode === "navigate" || request.destination === "script" || request.destination === "style";
     event.respondWith(
-        sensitive
+        updateSensitive
             ? fetch(request, { cache: "no-store" }).then(response => {
-                if (response?.status === 200) caches.open(CACHE_VERSION).then(c => c.put(request, response.clone()));
+                if (response?.status === 200) caches.open(CACHE_VERSION).then(cache => cache.put(request, response.clone()));
                 return response;
-            }).catch(() => caches.match(request).then(c => c || caches.match("./index.html")))
-            : caches.match(request).then(c => c || fetch(request).then(response => {
+            }).catch(() => caches.match(request).then(cached => cached || caches.match("./index.html")))
+            : caches.match(request).then(cached => cached || fetch(request).then(response => {
                 if (response?.status === 200) caches.open(CACHE_VERSION).then(cache => cache.put(request, response.clone()));
                 return response;
             }))
