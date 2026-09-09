@@ -16,7 +16,6 @@
         view.innerHTML=`<div class="page-heading"><span class="eyebrow">VEHICLE INTELLIGENCE</span><h1 id="analytics-title">Analytics</h1></div><div id="analyticsKpis" class="analytics-kpis"></div><div class="analytics-panel"><header><span>RUNNING COST · 6 MONTHS</span></header><div id="analyticsCostChart" class="analytics-bars" role="img" aria-label="Six month running cost chart"></div></div><div class="analytics-panel"><header><span>SPEND BREAKDOWN · THIS MONTH</span></header><div id="analyticsBreakdown" class="analytics-list"></div></div>`;
         page.parentNode.appendChild(view);
         const back=document.createElement("button");back.type="button";back.className="large-action analytics-back";back.textContent="BACK TO MORE";back.addEventListener("click",()=>{view.classList.add("hidden");page.classList.add("active");});view.appendChild(back);
-        const buttons=[...page.querySelectorAll(".settings-list button")];buttons.find(b=>b.textContent.trim().toLowerCase().startsWith("analytics"))?.addEventListener("click",()=>{page.classList.remove("active");view.classList.remove("hidden");render();});
     }
     async function render(){mount();const d=await DRIVE_DATA.intelligence();const now=new Date(),months=[];for(let i=5;i>=0;i--)months.push(new Date(now.getFullYear(),now.getMonth()-i,1));
         const values=months.map(m=>{const k=DRIVE_DATA.monthKey(m);return [...d.fuel.map(r=>[r.date,r.cost]),...d.expenses.map(r=>[r.date,r.amount]),...d.maintenance.map(r=>[r.date,r.cost])].filter(x=>DRIVE_DATA.monthKey(new Date(x[0]))===k).reduce((s,x)=>s+Number(x[1]||0),0)});const max=Math.max(...values,1);
@@ -24,7 +23,8 @@
         $("analyticsCostChart").innerHTML=months.map((m,i)=>`<div class="analytics-bar"><i style="height:${Math.max(3,values[i]/max*145)}px" title="${money(values[i])}"></i><small>${m.toLocaleDateString(undefined,{month:"short"})}</small></div>`).join("");
         const cats=new Map();d.month.expenses.forEach(r=>cats.set(r.category,(cats.get(r.category)||0)+Number(r.amount||0));d.month.maintenance.forEach(r=>cats.set("Maintenance",(cats.get("Maintenance")||0)+Number(r.cost||0)));cats.set("Fuel",(cats.get("Fuel")||0)+d.metrics.fuelSpend);const rows=[...cats.entries()].sort((a,b)=>b[1]-a[1]);$("analyticsBreakdown").innerHTML=rows.length?rows.map(([k,v])=>`<div class="analytics-row"><span>${esc(k)}</span><strong>${money(v)}</strong></div>`).join(""): `<div class="analytics-row"><span>No spending recorded this month</span><strong>—</strong></div>`;
     }
-    window.DRIVE_ANALYTICS={refresh:render};
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded",()=>{mount();},{once:true});
-    else mount();
+    function openAnalytics(){mount();const page=$("morePage"),view=$("analyticsView");page?.classList.remove("active");view?.classList.remove("hidden");render().catch(console.error);view?.focus({preventScroll:true});}
+    window.DRIVE_ANALYTICS={refresh:render,open:openAnalytics};
+    function boot(){const button=[...document.querySelectorAll("#morePage .settings-list button")].find(b=>b.textContent.trim().toLowerCase().startsWith("analytics"));if(button&&!button.dataset.analyticsBound){button.dataset.analyticsBound="1";button.addEventListener("click",openAnalytics)}}
+    if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
