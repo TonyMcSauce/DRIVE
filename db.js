@@ -1,221 +1,209 @@
 const DRIVE_DB = "drive-db";
-const DRIVE_DB_VERSION = 1;
+const DRIVE_DB_VERSION = 2;
 
 let dbInstance = null;
 
+function createIndexIfMissing(store, name, keyPath, options = {}) {
+    if (!store.indexNames.contains(name)) {
+        store.createIndex(name, keyPath, options);
+    }
+}
 
 function openDatabase() {
+    if (dbInstance) return Promise.resolve(dbInstance);
 
     return new Promise((resolve, reject) => {
-
-        const request = indexedDB.open(
-            DRIVE_DB,
-            DRIVE_DB_VERSION
-        );
-
+        const request = indexedDB.open(DRIVE_DB, DRIVE_DB_VERSION);
 
         request.onupgradeneeded = event => {
-
             const db = event.target.result;
+            const transaction = event.target.transaction;
 
-
+            let vehicles;
             if (!db.objectStoreNames.contains("vehicles")) {
-
-                db.createObjectStore(
-                    "vehicles",
-                    {
-                        keyPath: "id",
-                        autoIncrement: true
-                    }
-                );
-
+                vehicles = db.createObjectStore("vehicles", {
+                    keyPath: "id",
+                    autoIncrement: true
+                });
+            } else {
+                vehicles = transaction.objectStore("vehicles");
             }
+            createIndexIfMissing(vehicles, "isActive", "isActive");
 
-
+            let fuel;
             if (!db.objectStoreNames.contains("fuel")) {
-
-                const store = db.createObjectStore(
-                    "fuel",
-                    {
-                        keyPath: "id",
-                        autoIncrement: true
-                    }
-                );
-
-                store.createIndex(
-                    "odometer",
-                    "odometer"
-                );
-
-                store.createIndex(
-                    "date",
-                    "date"
-                );
-
+                fuel = db.createObjectStore("fuel", {
+                    keyPath: "id",
+                    autoIncrement: true
+                });
+            } else {
+                fuel = transaction.objectStore("fuel");
             }
+            createIndexIfMissing(fuel, "odometer", "odometer");
+            createIndexIfMissing(fuel, "date", "date");
+            createIndexIfMissing(fuel, "vehicleId", "vehicleId");
 
-
+            let trips;
             if (!db.objectStoreNames.contains("trips")) {
-
-                const store = db.createObjectStore(
-                    "trips",
-                    {
-                        keyPath: "id",
-                        autoIncrement: true
-                    }
-                );
-
-                store.createIndex(
-                    "startTime",
-                    "startTime"
-                );
-
+                trips = db.createObjectStore("trips", {
+                    keyPath: "id",
+                    autoIncrement: true
+                });
+            } else {
+                trips = transaction.objectStore("trips");
             }
+            createIndexIfMissing(trips, "startTime", "startTime");
+            createIndexIfMissing(trips, "vehicleId", "vehicleId");
 
-
+            let maintenance;
             if (!db.objectStoreNames.contains("maintenance")) {
-
-                db.createObjectStore(
-                    "maintenance",
-                    {
-                        keyPath: "id",
-                        autoIncrement: true
-                    }
-                );
-
+                maintenance = db.createObjectStore("maintenance", {
+                    keyPath: "id",
+                    autoIncrement: true
+                });
+            } else {
+                maintenance = transaction.objectStore("maintenance");
             }
+            createIndexIfMissing(maintenance, "date", "date");
+            createIndexIfMissing(maintenance, "vehicleId", "vehicleId");
 
-
+            let expenses;
             if (!db.objectStoreNames.contains("expenses")) {
-
-                db.createObjectStore(
-                    "expenses",
-                    {
-                        keyPath: "id",
-                        autoIncrement: true
-                    }
-                );
-
+                expenses = db.createObjectStore("expenses", {
+                    keyPath: "id",
+                    autoIncrement: true
+                });
+            } else {
+                expenses = transaction.objectStore("expenses");
             }
+            createIndexIfMissing(expenses, "date", "date");
+            createIndexIfMissing(expenses, "vehicleId", "vehicleId");
+            createIndexIfMissing(expenses, "category", "category");
 
+            if (!db.objectStoreNames.contains("settings")) {
+                db.createObjectStore("settings", { keyPath: "key" });
+            }
         };
-
 
         request.onsuccess = () => {
-
             dbInstance = request.result;
-
+            dbInstance.onversionchange = () => {
+                dbInstance.close();
+                dbInstance = null;
+            };
             resolve(dbInstance);
-
         };
 
-
-        request.onerror = () => {
-
-            reject(request.error);
-
-        };
-
+        request.onerror = () => reject(request.error);
     });
-
 }
-
 
 async function addRecord(storeName, data) {
-
     const db = dbInstance || await openDatabase();
-
     return new Promise((resolve, reject) => {
-
-        const transaction = db.transaction(
-            storeName,
-            "readwrite"
-        );
-
-        const store =
-            transaction.objectStore(storeName);
-
-
+        const transaction = db.transaction(storeName, "readwrite");
+        const store = transaction.objectStore(storeName);
         const request = store.add(data);
-
-
-        request.onsuccess = () => {
-
-            resolve(request.result);
-
-        };
-
-
-        request.onerror = () => {
-
-            reject(request.error);
-
-        };
-
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
     });
-
 }
 
+async function putRecord(storeName, data) {
+    const db = dbInstance || await openDatabase();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(storeName, "readwrite");
+        const request = transaction.objectStore(storeName).put(data);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function getRecord(storeName, key) {
+    const db = dbInstance || await openDatabase();
+    return new Promise((resolve, reject) => {
+        const request = db.transaction(storeName, "readonly")
+            .objectStore(storeName).get(key);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function deleteRecord(storeName, key) {
+    const db = dbInstance || await openDatabase();
+    return new Promise((resolve, reject) => {
+        const request = db.transaction(storeName, "readwrite")
+            .objectStore(storeName).delete(key);
+        request.onsuccess = () => resolve(true);
+        request.onerror = () => reject(request.error);
+    });
+}
 
 async function getAllRecords(storeName) {
-
     const db = dbInstance || await openDatabase();
-
     return new Promise((resolve, reject) => {
-
-        const transaction = db.transaction(
-            storeName,
-            "readonly"
-        );
-
-        const store =
-            transaction.objectStore(storeName);
-
-
-        const request = store.getAll();
-
-
-        request.onsuccess = () => {
-
-            resolve(request.result);
-
-        };
-
-
-        request.onerror = () => {
-
-            reject(request.error);
-
-        };
-
+        const request = db.transaction(storeName, "readonly")
+            .objectStore(storeName).getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
     });
-
 }
 
-
 async function getLatestRecord(storeName) {
+    const records = await getAllRecords(storeName);
+    if (!records.length) return null;
 
-    const records =
-        await getAllRecords(storeName);
+    return records.sort((a, b) => {
+        const dateA = new Date(a.date || a.startTime || a.createdAt || 0);
+        const dateB = new Date(b.date || b.startTime || b.createdAt || 0);
+        return dateB - dateA;
+    })[0];
+}
 
+async function getActiveVehicle() {
+    const vehicles = await getAllRecords("vehicles");
+    return vehicles.find(vehicle => vehicle.isActive) || null;
+}
 
-    if (!records.length) {
-        return null;
+async function ensureDefaultVehicle() {
+    const vehicles = await getAllRecords("vehicles");
+    const active = vehicles.find(vehicle => vehicle.isActive);
+    if (active) return active;
+
+    const existingLexus = vehicles.find(vehicle =>
+        String(vehicle.make || "").toLowerCase() === "lexus" &&
+        String(vehicle.model || "").toLowerCase() === "is250"
+    );
+
+    if (existingLexus) {
+        existingLexus.isActive = true;
+        await putRecord("vehicles", existingLexus);
+        return existingLexus;
     }
 
+    const vehicle = {
+        name: "Lexus IS250",
+        make: "Lexus",
+        model: "IS250",
+        year: 2007,
+        engine: "2.5L V6",
+        odometer: 128421,
+        isActive: true,
+        createdAt: new Date().toISOString()
+    };
 
-    return records.sort(
-        (a, b) => {
+    vehicle.id = await addRecord("vehicles", vehicle);
+    return vehicle;
+}
 
-            const dateA =
-                new Date(a.date || a.startTime || 0);
-
-            const dateB =
-                new Date(b.date || b.startTime || 0);
-
-            return dateB - dateA;
-
+async function setActiveVehicle(vehicleId) {
+    const vehicles = await getAllRecords("vehicles");
+    for (const vehicle of vehicles) {
+        const shouldBeActive = vehicle.id === vehicleId;
+        if (vehicle.isActive !== shouldBeActive) {
+            vehicle.isActive = shouldBeActive;
+            await putRecord("vehicles", vehicle);
         }
-    )[0];
-
+    }
+    return getRecord("vehicles", vehicleId);
 }
