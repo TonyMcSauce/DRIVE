@@ -61,8 +61,8 @@
         makeUI();
         const buttons=[...document.querySelectorAll("#morePage .settings-list button")];
         const data=buttons.find(b=>b.textContent.trim().toLowerCase().startsWith("data & backup"));
-        data?.addEventListener("click",()=>$("dataToolsModal").classList.remove("hidden"));
+        if(data&&!data.dataset.dataToolsBound){data.dataset.dataToolsBound="1";data.addEventListener("click",()=>$("dataToolsModal").classList.remove("hidden"));}
     }
-    window.DRIVE_DATA_TOOLS={clearStore,clearOne,clearAllRecords,factoryReset,exportData,importData};
-    document.addEventListener("DOMContentLoaded",setup);
+    window.DRIVE_DATA_TOOLS={clearStore,clearOne,clearAllRecords,factoryReset,exportData,importData,open:()=>{$("dataToolsModal")?.classList.remove("hidden")}};
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
 })();
