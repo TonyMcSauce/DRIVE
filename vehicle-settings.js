@@ -1,98 +1,17 @@
-/* DRIVE v0.8 — vehicle settings */
-(function () {
-    "use strict";
-
-    let modal;
-
-    const esc = value => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[char]));
-
-    function ensureModal() {
-        if (modal) return modal;
-        modal = document.createElement("div");
-        modal.id = "vehicleSettingsModal";
-        modal.className = "modal hidden";
-        modal.innerHTML = `
-            <div class="modal-sheet">
-                <div class="modal-handle" aria-hidden="true"></div>
-                <div class="modal-header">
-                    <div><span class="eyebrow">VEHICLE PROFILE</span><h2 id="vehicle-settings-title">Settings</h2></div>
-                    <button type="button" class="modal-close" data-settings-close aria-label="Close vehicle settings">×</button>
-                </div>
-                <form id="vehicleSettingsForm" novalidate>
-                    <label for="vehicleNameInput">Vehicle name<input id="vehicleNameInput" maxlength="60" required></label>
-                    <label for="vehicleMakeInput">Make<input id="vehicleMakeInput" maxlength="40" required></label>
-                    <label for="vehicleModelInput">Model<input id="vehicleModelInput" maxlength="40" required></label>
-                    <label for="vehicleYearInput">Year<input id="vehicleYearInput" type="number" inputmode="numeric" min="1886" max="2100" step="1" required></label>
-                    <label for="vehicleEngineInput">Engine<input id="vehicleEngineInput" maxlength="40"></label>
-                    <label for="vehicleOdometerInput">Current odometer<div class="input-unit"><input id="vehicleOdometerInput" type="number" inputmode="decimal" min="0" max="99999999" step="1" required><span aria-hidden="true">KM</span></div></label>
-                    <p id="vehicleSettingsError" class="form-error" role="alert" hidden></p>
-                    <button type="submit" class="submit-button">SAVE VEHICLE</button>
-                </form>
-            </div>`;
-        document.body.appendChild(modal);
-        modal.querySelector("[data-settings-close]").addEventListener("click", close);
-        modal.querySelector("form").addEventListener("submit", save);
-        return modal;
-    }
-
-    async function open() {
-        const vehicle = await getActiveVehicle();
-        if (!vehicle) return;
-        const root = ensureModal();
-        const values = {
-            vehicleNameInput: vehicle.name,
-            vehicleMakeInput: vehicle.make,
-            vehicleModelInput: vehicle.model,
-            vehicleYearInput: vehicle.year,
-            vehicleEngineInput: vehicle.engine,
-            vehicleOdometerInput: vehicle.odometer
-        };
-        Object.entries(values).forEach(([id, value]) => { root.querySelector(`#${id}`).value = value ?? ""; });
-        root.classList.remove("hidden");
-        root.querySelector("#vehicleNameInput")?.focus();
-        window.DRIVE_A11Y?.refresh();
-    }
-
-    function close() { modal?.classList.add("hidden"); }
-
-    async function save(event) {
-        event.preventDefault();
-        const vehicle = await getActiveVehicle();
-        if (!vehicle) return;
-        const name = document.getElementById("vehicleNameInput").value.trim();
-        const make = document.getElementById("vehicleMakeInput").value.trim();
-        const model = document.getElementById("vehicleModelInput").value.trim();
-        const year = Number(document.getElementById("vehicleYearInput").value);
-        const engine = document.getElementById("vehicleEngineInput").value.trim();
-        const odometer = Number(document.getElementById("vehicleOdometerInput").value);
-        const error = document.getElementById("vehicleSettingsError");
-
-        if (!name || !make || !model || !Number.isInteger(year) || year < 1886 || year > 2100 || !Number.isFinite(odometer) || odometer < 0 || odometer > 99999999) {
-            error.textContent = "Check the vehicle details and odometer value.";
-            error.hidden = false;
-            return;
-        }
-        error.hidden = true;
-        Object.assign(vehicle, { name, make, model, year, engine, odometer, updatedAt: new Date().toISOString() });
-        await putRecord("vehicles", vehicle);
-        close();
-        await window.DRIVE_V06?.init?.();
-        await window.initV06?.();
-        window.DRIVE_V07?.refresh();
-        window.DRIVE_A11Y?.refresh();
-    }
-
-    function bind() {
-        document.getElementById("settingsButton")?.addEventListener("click", open);
-        document.querySelectorAll("#morePage .settings-list button").forEach(button => {
-            if (button.textContent.trim().startsWith("Settings") && !button.dataset.vehicleSettingsBound) {
-                button.dataset.vehicleSettingsBound = "1";
-                button.addEventListener("click", open);
-            }
-        });
-    }
-
-    window.DRIVE_VEHICLE_SETTINGS = { open, close };
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind, { once: true });
-    else bind();
+/* DRIVE — Vehicle Settings */
+(()=>{
+"use strict";
+let modal=null;
+const esc=v=>String(v??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+function ensureModal(){if(modal)return modal;modal=document.getElementById("vehicleSettingsModal");if(!modal){modal=document.createElement("div");modal.id="vehicleSettingsModal";modal.className="modal hidden";modal.innerHTML=`<div class="modal-sheet"><div class="modal-header"><div><span class="eyebrow">VEHICLE PROFILE</span><h2>Settings</h2></div><button type="button" class="modal-close" data-settings-close aria-label="Close vehicle settings">×</button></div><form id="vehicleSettingsForm" novalidate><label>Vehicle name<input id="vehicleNameInput" maxlength="60" required></label><label>Make<input id="vehicleMakeInput" maxlength="40" required></label><label>Model<input id="vehicleModelInput" maxlength="40" required></label><label>Year<input id="vehicleYearInput" type="number" min="1886" max="2100" step="1" required></label><label>Engine<input id="vehicleEngineInput" maxlength="40"></label><label>Current odometer<div class="input-unit"><input id="vehicleOdometerInput" type="number" min="0" max="99999999" step="1" required><span>KM</span></div></label><p id="vehicleSettingsError" class="form-error" role="alert" hidden></p><button type="submit" class="submit-button">SAVE VEHICLE</button></form></div>`;document.body.appendChild(modal)}bindModal();return modal}
+function bindModal(){if(!modal)return;const close=modal.querySelector("[data-settings-close]");if(close&&!close.dataset.bound){close.dataset.bound="1";close.onclick=closeSettings}const form=modal.querySelector("#vehicleSettingsForm");if(form&&!form.dataset.bound){form.dataset.bound="1";form.addEventListener("submit",save)}}
+async function getVehicle(){let v=await getActiveVehicle();if(!v&&typeof ensureDefaultVehicle==="function")v=await ensureDefaultVehicle();return v}
+async function open(){try{const v=await getVehicle();if(!v){alert("DRIVE could not load the active vehicle.");return}const m=ensureModal(),q=id=>m.querySelector(`#${id}`);q("vehicleNameInput").value=v.name||"";q("vehicleMakeInput").value=v.make||"";q("vehicleModelInput").value=v.model||"";q("vehicleYearInput").value=v.year||"";q("vehicleEngineInput").value=v.engine||"";q("vehicleOdometerInput").value=v.odometer??"";q("vehicleSettingsError").hidden=true;m.classList.remove("hidden");q("vehicleNameInput").focus()}catch(e){console.error("Vehicle settings open failed",e)}}
+function closeSettings(){modal?.classList.add("hidden")}
+async function save(e){e.preventDefault();const m=ensureModal(),q=id=>m.querySelector(`#${id}`),err=q("vehicleSettingsError"),v=await getVehicle();if(!v){err.textContent="Vehicle data is unavailable. Reload DRIVE.";err.hidden=false;return}const name=q("vehicleNameInput").value.trim(),make=q("vehicleMakeInput").value.trim(),model=q("vehicleModelInput").value.trim(),year=Number(q("vehicleYearInput").value),engine=q("vehicleEngineInput").value.trim(),odometer=Number(q("vehicleOdometerInput").value);if(!name||!make||!model||!Number.isInteger(year)||year<1886||year>2100||!Number.isFinite(odometer)||odometer<0||odometer>99999999){err.textContent="Check the vehicle details and odometer value.";err.hidden=false;return}try{const btn=m.querySelector("button[type=submit]");btn.disabled=true;Object.assign(v,{name,make,model,year,engine,odometer,updatedAt:new Date().toISOString()});await putRecord("vehicles",v);m.classList.add("hidden");window.dispatchEvent(new CustomEvent("drive:datachanged",{detail:{store:"vehicles",id:v.id}}));if(typeof initV06==="function")await initV06();notifyDone(`Vehicle saved: ${name}.`)}catch(error){console.error("Vehicle settings save failed",error);err.textContent="Vehicle could not be saved. Please try again.";err.hidden=false}finally{const btn=m.querySelector("button[type=submit]");if(btn)btn.disabled=false}}
+function notifyDone(msg){if(typeof announce==="function")announce(msg);else console.info(msg)}
+function bindTriggers(){const handler=e=>{const b=e.target.closest?.("#settingsButton, #morePage .settings-list button");if(!b)return;if(b.id==="settingsButton"||b.textContent.trim().toLowerCase().startsWith("settings")){e.preventDefault();open()}};if(!document.documentElement.dataset.vehicleSettingsDelegated){document.documentElement.dataset.vehicleSettingsDelegated="1";document.addEventListener("click",handler)}}
+window.DRIVE_VEHICLE_SETTINGS={open,close:closeSettings};
+function boot(){bindTriggers();if(document.getElementById("vehicleSettingsModal"))ensureModal()}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
