@@ -1,167 +1,110 @@
-/* DRIVE v0.11 — Camera + OCR workflows */
+/* DRIVE v0.12 — Camera + OCR workflows */
 (() => {
     "use strict";
 
-    const state = { stream: null, facingMode: "environment", mode: "fuel", capturedImage: null, ocrText: "", confidence: null };
-    const MODES = Object.freeze({ fuel: "Fuel receipt", odometer: "Odometer", service: "Service document", tyre: "Tyre sidewall" });
-    const esc = value => String(value ?? "").replace(/[&<>\"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
-    const num = value => Number(String(value ?? "").replace(/,/g, ".").replace(/[^0-9.]/g, ""));
-    const dateValue = value => { const m = String(value || "").match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})\b/); if (!m) return ""; const y = m[3].length === 2 ? `20${m[3]}` : m[3]; return `${y}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`; };
+    const state = { stream:null, facingMode:"environment", mode:"fuel", capturedImage:null, ocrText:"", confidence:null, busy:false };
+    const MODES = Object.freeze({
+        fuel:{label:"Fuel",hint:"Receipt · litres · total · odometer"},
+        odometer:{label:"Odometer",hint:"Dashboard mileage"},
+        service:{label:"Service",hint:"Invoice · repair · maintenance"},
+        tyre:{label:"Tyre",hint:"Sidewall · size · pressure"}
+    });
+    const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+    const num=v=>Number(String(v??"").replace(/,/g,".").replace(/[^0-9.]/g,""));
+    const today=()=>new Date().toISOString().slice(0,10);
+    function dateValue(value){const m=String(value||"").match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})\b/);if(!m)return"";const y=m[3].length===2?`20${m[3]}`:m[3],d=Number(m[1]),mo=Number(m[2]);if(mo<1||mo>12||d<1||d>31)return"";return`${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`;}
 
-    function styles() {
-        if (document.getElementById("cameraOcrStyles")) return;
-        const s = document.createElement("style"); s.id = "cameraOcrStyles"; s.textContent = `
-        .camera-ocr{margin-top:18px}.camera-panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}.camera-preview{position:relative;aspect-ratio:4/3;background:#050607;display:grid;place-items:center}.camera-preview video,.camera-preview img{width:100%;height:100%;object-fit:cover}.camera-placeholder{color:var(--muted);font-size:11px;padding:30px;text-align:center}.camera-controls{display:grid;gap:10px;padding:14px}.camera-mode{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.camera-mode button{min-height:40px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;color:var(--muted);font-size:9px;font-weight:800}.camera-mode button.active{color:var(--accent);border-color:var(--accent)}.camera-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.camera-actions button{min-height:48px}.camera-status{font-size:10px;color:var(--muted);line-height:1.5}.ocr-result{display:grid;gap:8px;margin-top:10px}.ocr-field{display:grid;gap:5px}.ocr-field label{font-size:9px;color:var(--muted);font-weight:800;letter-spacing:.06em}.ocr-field input{width:100%;box-sizing:border-box}.ocr-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.ocr-raw{white-space:pre-wrap;max-height:180px;overflow:auto;font-size:10px;color:var(--muted);background:var(--surface-2);padding:10px;border-radius:10px}.ocr-confidence{font-size:10px;font-weight:800}.ocr-grid{display:grid;gap:9px}@media(max-width:560px){.camera-mode{grid-template-columns:repeat(2,1fr)}}
-        `; document.head.appendChild(s);
+    function styles(){
+        if(document.getElementById("cameraOcrStyles"))return;
+        const s=document.createElement("style");s.id="cameraOcrStyles";s.textContent=`
+        .camera-ocr{display:grid;gap:16px;margin-top:18px;max-width:760px}
+        .camera-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,.18)}
+        .camera-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:18px;border-bottom:1px solid var(--line)}
+        .camera-kicker{font-size:9px;letter-spacing:.12em;font-weight:850;color:var(--accent);text-transform:uppercase}.camera-head h2{margin:4px 0 3px;font-size:18px;letter-spacing:-.02em}.camera-head p{margin:0;color:var(--muted);font-size:11px;line-height:1.5}
+        .camera-stage{position:relative;aspect-ratio:4/3;background:#050607;overflow:hidden}.camera-preview{position:absolute;inset:0;display:grid;place-items:center}.camera-preview video,.camera-preview img{display:block;width:100%;height:100%;object-fit:cover}.camera-placeholder{max-width:270px;padding:24px;text-align:center;color:var(--muted);font-size:11px;line-height:1.6}.camera-placeholder strong{display:block;color:var(--text);font-size:13px;margin-bottom:5px}
+        .camera-frame{position:absolute;inset:12%;border:1px solid rgba(216,255,62,.72);border-radius:14px;box-shadow:0 0 0 999px rgba(0,0,0,.24);pointer-events:none}.camera-frame:after{content:"ALIGN WITHIN FRAME";position:absolute;left:50%;bottom:-25px;transform:translateX(-50%);white-space:nowrap;color:rgba(255,255,255,.72);font-size:8px;letter-spacing:.12em;font-weight:800}
+        .camera-live-dot{position:absolute;top:12px;left:12px;display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:999px;background:rgba(0,0,0,.62);backdrop-filter:blur(10px);color:#fff;font-size:8px;font-weight:850;letter-spacing:.08em}.camera-live-dot span{width:6px;height:6px;border-radius:50%;background:var(--danger);box-shadow:0 0 0 3px rgba(255,93,93,.12)}
+        .camera-toolbar{display:grid;gap:12px;padding:14px}.camera-modes{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.camera-mode{min-height:50px;padding:7px 6px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;color:var(--muted);font:inherit;text-align:left;cursor:pointer}.camera-mode strong{display:block;font-size:10px;color:var(--text);letter-spacing:.03em}.camera-mode span{display:block;margin-top:2px;font-size:8px;line-height:1.3;color:var(--muted)}.camera-mode.active{border-color:rgba(216,255,62,.58);background:rgba(216,255,62,.06);box-shadow:inset 0 0 0 1px rgba(216,255,62,.08)}.camera-mode.active strong{color:var(--accent)}
+        .camera-actions,.ocr-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.camera-actions button,.ocr-actions button{min-height:48px}.camera-status{display:flex;align-items:flex-start;gap:8px;margin:0;padding:10px 11px;border-radius:10px;background:var(--surface-2);color:var(--muted);font-size:10px;line-height:1.45}.camera-status:before{content:"";flex:0 0 5px;width:5px;height:5px;margin-top:5px;border-radius:50%;background:var(--accent)}.camera-status[data-state="error"]:before{background:var(--danger)}.camera-status[data-state="working"]:before{background:var(--warning)}
+        .ocr-result{display:grid;gap:10px}.ocr-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:15px}.ocr-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:13px}.ocr-card-head strong{font-size:11px;letter-spacing:.08em}.ocr-confidence{font-size:9px;color:var(--muted);text-align:right;line-height:1.4}.ocr-confidence b{display:block;color:var(--text);font-size:12px}.ocr-grid{display:grid;gap:10px}.ocr-field{display:grid;gap:5px}.ocr-field label{font-size:8px;color:var(--muted);font-weight:850;letter-spacing:.1em}.ocr-field input{width:100%;box-sizing:border-box}.ocr-note{margin:0 0 12px;color:var(--muted);font-size:10px;line-height:1.5}.ocr-raw-wrap{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}.ocr-raw-wrap summary{cursor:pointer;color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.08em;min-height:24px}.ocr-raw{white-space:pre-wrap;max-height:180px;overflow:auto;margin-top:8px;padding:10px;border-radius:10px;background:var(--surface-2);color:var(--muted);font:10px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}.ocr-review-banner{padding:11px;border:1px solid rgba(244,201,93,.18);border-radius:11px;background:rgba(244,201,93,.05);color:var(--muted);font-size:10px;line-height:1.45}.ocr-review-banner strong{display:block;color:var(--text);margin-bottom:2px}
+        @media(max-width:560px){.camera-modes{grid-template-columns:repeat(2,1fr)}.camera-head{padding:15px}.camera-stage{aspect-ratio:1/1}.camera-frame{inset:10% 8%}}@media(prefers-reduced-motion:reduce){.camera-mode,.camera-card{transition:none!important}}
+        `;document.head.appendChild(s);
     }
 
-    function mount() {
-        if (document.getElementById("cameraOcrPage")) return;
-        const main = document.querySelector("main"); if (!main) return;
-        main.insertAdjacentHTML("beforeend", `<section id="cameraOcrPage" class="page" tabindex="-1" aria-labelledby="camera-ocr-title"><div class="page-heading"><span class="eyebrow">CAPTURE</span><h1 id="camera-ocr-title">Camera</h1></div><div class="camera-ocr"><div class="camera-panel"><div id="cameraPreview" class="camera-preview"><div class="camera-placeholder">Camera is off.<br>Choose what you want DRIVE to read.</div></div><div class="camera-controls"><div id="cameraModes" class="camera-mode" role="group" aria-label="OCR capture type">${Object.entries(MODES).map(([key,label])=>`<button type="button" data-ocr-mode="${key}">${esc(label)}</button>`).join("")}</div><div class="camera-actions"><button type="button" class="large-action" id="cameraStart">START CAMERA</button><button type="button" class="large-action" id="cameraCapture" disabled>CAPTURE</button></div><div id="cameraStatus" class="camera-status" role="status" aria-live="polite">Local capture ready.</div><canvas id="cameraCanvas" hidden></canvas><div id="ocrResult" class="ocr-result hidden"></div></div></div></div></section>`);
-        bind();
+    function mount(){
+        if(document.getElementById("cameraOcrPage"))return;const main=document.querySelector("main");if(!main)return;
+        main.insertAdjacentHTML("beforeend",`<section id="cameraOcrPage" class="page" tabindex="-1" aria-labelledby="camera-ocr-title"><div class="page-heading"><span class="eyebrow">CAPTURE</span><h1 id="camera-ocr-title">Camera</h1></div><div class="camera-ocr"><div class="camera-card"><div class="camera-head"><div><div class="camera-kicker">DOCUMENT SCANNER</div><h2 id="cameraModeTitle">Fuel receipt</h2><p id="cameraModeHint">Receipt · litres · total · odometer</p></div></div><div class="camera-stage"><div id="cameraPreview" class="camera-preview"><div class="camera-placeholder"><strong>Camera is off</strong>Choose a capture type below, then start the camera.</div></div><div class="camera-frame" aria-hidden="true"></div><div id="cameraLiveDot" class="camera-live-dot hidden" aria-hidden="true"><span></span>LIVE</div></div><div class="camera-toolbar"><div id="cameraModes" class="camera-modes" role="group" aria-label="What DRIVE should read">${Object.entries(MODES).map(([key,item])=>`<button type="button" class="camera-mode" data-ocr-mode="${key}" aria-pressed="false"><strong>${esc(item.label)}</strong><span>${esc(item.hint)}</span></button>`).join("")}</div><div class="camera-actions"><button type="button" class="large-action" id="cameraStart">START CAMERA</button><button type="button" class="submit-button" id="cameraCapture" disabled>CAPTURE</button></div><p id="cameraStatus" class="camera-status" role="status" aria-live="polite">Local capture ready. Nothing is saved automatically.</p><canvas id="cameraCanvas" hidden></canvas></div></div><div id="ocrResult" class="ocr-result hidden"></div></div></section>`);bind();
     }
 
-    function bind() {
-        document.querySelectorAll("[data-ocr-mode]").forEach(button => button.addEventListener("click", () => { state.mode = button.dataset.ocrMode; document.querySelectorAll("[data-ocr-mode]").forEach(b => b.classList.toggle("active", b === button)); setStatus(`${MODES[state.mode]} capture selected.`); }));
-        document.getElementById("cameraStart")?.addEventListener("click", start);
-        document.getElementById("cameraCapture")?.addEventListener("click", capture);
-        document.querySelector("[data-ocr-mode=\"fuel\"]")?.click();
+    function bind(){
+        document.querySelectorAll("[data-ocr-mode]").forEach(button=>button.addEventListener("click",()=>{state.mode=button.dataset.ocrMode;document.querySelectorAll("[data-ocr-mode]").forEach(b=>{const active=b===button;b.classList.toggle("active",active);b.setAttribute("aria-pressed",String(active));});const mode=MODES[state.mode];document.getElementById("cameraModeTitle").textContent=mode.label==="Fuel"?"Fuel receipt":mode.label;document.getElementById("cameraModeHint").textContent=mode.hint;reset(false);setStatus(`${mode.label} capture selected.`);}));
+        document.getElementById("cameraStart")?.addEventListener("click",start);document.getElementById("cameraCapture")?.addEventListener("click",capture);document.querySelector('[data-ocr-mode="fuel"]')?.click();
+    }
+    function setStatus(message,type=""){const el=document.getElementById("cameraStatus");if(el){el.textContent=message;el.dataset.state=type;}}
+    async function start(){
+        if(!navigator.mediaDevices?.getUserMedia){setStatus("Camera access is not supported by this browser.","error");return;}stop();
+        try{state.capturedImage=null;state.ocrText="";state.confidence=null;const preview=document.getElementById("cameraPreview");if(preview)preview.innerHTML="";state.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:state.facingMode},width:{ideal:1280},height:{ideal:960}},audio:false});const video=document.createElement("video");video.autoplay=true;video.playsInline=true;video.muted=true;video.setAttribute("aria-label","Live camera preview");preview?.appendChild(video);video.srcObject=state.stream;document.getElementById("cameraCapture")?.removeAttribute("disabled");const startButton=document.getElementById("cameraStart");if(startButton)startButton.textContent="RESTART CAMERA";document.getElementById("cameraLiveDot")?.classList.remove("hidden");setStatus("Camera active. Align the receipt, display or sidewall inside the frame.");}
+        catch(error){console.error("DRIVE camera access failed",error);setStatus("Camera access was not available. Check browser permission and try again.","error");}
+    }
+    function stop(){state.stream?.getTracks().forEach(track=>track.stop());state.stream=null;document.getElementById("cameraLiveDot")?.classList.add("hidden");}
+    function capture(){const video=document.querySelector("#cameraPreview video"),canvas=document.getElementById("cameraCanvas");if(!video||!canvas||!video.videoWidth)return;canvas.width=video.videoWidth;canvas.height=video.videoHeight;canvas.getContext("2d",{willReadFrequently:true}).drawImage(video,0,0,canvas.width,canvas.height);state.capturedImage=canvas.toDataURL("image/jpeg",.9);stop();document.getElementById("cameraCapture").disabled=true;document.getElementById("cameraStart").textContent="RETAKE";renderPreview();prepareOcr();}
+    function renderPreview(){const preview=document.getElementById("cameraPreview");if(!preview||!state.capturedImage)return;preview.innerHTML="";const img=document.createElement("img");img.src=state.capturedImage;img.alt="Captured image awaiting OCR review";preview.appendChild(img);}
+
+    async function loadTesseract(){
+        if(window.Tesseract?.createWorker)return window.Tesseract;
+        await new Promise((resolve,reject)=>{const existing=document.querySelector("script[data-drive-tesseract]");if(existing){if(window.Tesseract?.createWorker)return resolve();existing.addEventListener("load",resolve,{once:true});existing.addEventListener("error",reject,{once:true});return;}const script=document.createElement("script");script.src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";script.async=true;script.dataset.driveTesseract="true";script.onload=resolve;script.onerror=()=>reject(new Error("OCR engine could not be loaded"));document.head.appendChild(script);});if(!window.Tesseract?.createWorker)throw new Error("OCR engine loaded without worker support");return window.Tesseract;
+    }
+    function preprocessImage(dataUrl){return new Promise(resolve=>{const img=new Image();img.onload=()=>{const max=1800,scale=Math.min(1,max/Math.max(img.width,img.height)),canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));const ctx=canvas.getContext("2d",{willReadFrequently:true});ctx.drawImage(img,0,0,canvas.width,canvas.height);const image=ctx.getImageData(0,0,canvas.width,canvas.height);for(let i=0;i<image.data.length;i+=4){const gray=image.data[i]*.299+image.data[i+1]*.587+image.data[i+2]*.114,boosted=Math.max(0,Math.min(255,(gray-128)*1.18+128));image.data[i]=image.data[i+1]=image.data[i+2]=boosted;}ctx.putImageData(image,0,0);resolve(canvas.toDataURL("image/jpeg",.9));};img.onerror=()=>resolve(dataUrl);img.src=dataUrl;});}
+
+    function chooseOdometer(numbers){const current=Number(document.getElementById("odometerValue")?.textContent?.replace(/[^0-9]/g,"")),candidates=numbers.filter(n=>n>=10000&&n<=99999999);if(!candidates.length)return"";const above=Number.isFinite(current)?candidates.filter(n=>n>=current):candidates;return(above.length?above:candidates).sort((a,b)=>Math.abs(a-(current||a))-Math.abs(b-(current||b)))[0]||"";}
+    function parseText(text){
+        const clean=String(text||"").replace(/\r/g,""),lines=clean.split("\n").map(x=>x.trim()).filter(Boolean),allNumbers=[...clean.matchAll(/\b\d{4,8}\b/g)].map(m=>Number(m[0])),dates=[...clean.matchAll(/\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/g)].map(m=>dateValue(m[0])).filter(Boolean);
+        if(state.mode==="odometer"){const odometer=chooseOdometer(allNumbers);return{odometer,confidenceText:odometer?"A plausible mileage value was detected. Verify it against the dashboard before saving.":"No clear odometer value was detected."};}
+        if(state.mode==="service"){const odometer=chooseOdometer(allNumbers),costMatch=clean.match(/(?:P|BWP|TOTAL|AMOUNT|COST|PAID)\s*[:=]?\s*([0-9]+[.,][0-9]{1,2})/i),cost=costMatch?num(costMatch[1]):"",title=lines.find(x=>/service|maintenance|repair|inspection|oil|brake|filter|tyre|tire/i.test(x))||lines[0]||"Service record";return{title:title.slice(0,80),description:lines.slice(0,8).join(" — ").slice(0,500),odometer,cost,date:dates[0]||today(),confidenceText:odometer||cost||dates.length?"Review the detected service details before saving.":"No strong service fields were detected."};}
+        if(state.mode==="fuel"){const litreMatch=clean.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:L|LTR|LITRE|LITRES)\b/i),priceMatch=clean.match(/(?:P|BWP)?\s*([0-9]+[.,][0-9]{2})\s*(?:\/\s*L|PER\s*L(?:ITRE)?)/i),totalMatch=clean.match(/(?:TOTAL|AMOUNT|SALE|PURCHASE|PAID)\s*[:=]?\s*(?:P|BWP)?\s*([0-9]+[.,][0-9]{2})/i),odometer=chooseOdometer(allNumbers);return{litres:litreMatch?num(litreMatch[1]):"",pricePerLitre:priceMatch?num(priceMatch[1]):"",cost:totalMatch?num(totalMatch[1]):"",odometer,date:dates[0]||today(),confidenceText:litreMatch||totalMatch?"Fuel values detected. Verify every value before saving.":"No strong fuel fields were detected."};}
+        const tyre=clean.match(/\b(\d{3})\s*[\/-]\s*(\d{2})\s*R\s*(\d{2})\b/i),pressure=clean.match(/(?:PSI|BAR)\s*[:=]?\s*([0-9]+(?:[.,][0-9]+)?)/i);return{tyreSize:tyre?`${tyre[1]}/${tyre[2]} R${tyre[3]}`:"",pressure:pressure?pressure[1]:"",confidenceText:tyre?"Tyre size detected. Verify the sidewall reading.":"No clear tyre size was detected."};
+    }
+    function field(label,id,value,type="text",extra=""){return`<div class="ocr-field"><label for="${id}">${esc(label)}</label><input id="${id}" type="${type}" value="${esc(value)}" ${extra}></div>`;}
+    function renderResult(parsed){
+        const result=document.getElementById("ocrResult");if(!result)return;const confidence=state.confidence==null?"—":`${Math.round(state.confidence)}%`;let fields="";
+        if(state.mode==="fuel")fields=field("LITRES","ocrLitres",parsed.litres,"number",'min="0.01" step="0.01" inputmode="decimal" required')+field("TOTAL COST (P)","ocrCost",parsed.cost,"number",'min="0" step="0.01" inputmode="decimal" required')+field("PRICE / LITRE (P)","ocrPricePerLitre",parsed.pricePerLitre,"number",'min="0" step="0.01" inputmode="decimal"')+field("ODOMETER (KM)","ocrOdometer",parsed.odometer,"number",'min="0" step="1" inputmode="numeric"')+field("DATE","ocrDate",parsed.date,"date","required");
+        else if(state.mode==="service")fields=field("SERVICE / REPAIR","ocrTitle",parsed.title,"text","required")+field("DESCRIPTION","ocrDescription",parsed.description)+field("ODOMETER (KM)","ocrOdometer",parsed.odometer,"number",'min="0" step="1" inputmode="numeric"')+field("COST (P)","ocrCost",parsed.cost,"number",'min="0" step="0.01" inputmode="decimal"')+field("DATE","ocrDate",parsed.date,"date","required");
+        else if(state.mode==="odometer")fields=field("ODOMETER (KM)","ocrOdometer",parsed.odometer,"number",'min="0" step="1" inputmode="numeric" required');
+        else fields=field("TYRE SIZE","ocrTyreSize",parsed.tyreSize)+field("PRESSURE","ocrPressure",parsed.pressure);
+        result.classList.remove("hidden");result.innerHTML=`<div class="ocr-card"><div class="ocr-card-head"><strong>REVIEW DETECTED DATA</strong><div class="ocr-confidence"><b>${confidence}</b>OCR confidence</div></div><div class="ocr-review-banner"><strong>Nothing has been saved.</strong>${esc(parsed.confidenceText)}</div><div class="ocr-grid" style="margin-top:12px">${fields}</div><details class="ocr-raw-wrap"><summary>VIEW RAW OCR TEXT</summary><div class="ocr-raw">${esc(state.ocrText||"No text returned")}</div></details><div class="ocr-actions"><button type="button" id="ocrSave" class="submit-button">${state.mode==="tyre"?"KEEP FOR REVIEW":"SAVE TO DRIVE"}</button><button type="button" id="ocrDiscard" class="large-action">DISCARD</button></div></div>`;
+        document.getElementById("ocrSave")?.addEventListener("click",saveResult);document.getElementById("ocrDiscard")?.addEventListener("click",()=>reset());
+    }
+    function prepareOcr(){setStatus("Capture complete. Review the image, then run OCR when you are ready.");const result=document.getElementById("ocrResult");if(!result)return;result.classList.remove("hidden");result.innerHTML=`<div class="ocr-card"><div class="ocr-card-head"><strong>READY FOR OCR</strong></div><p class="ocr-note">DRIVE will read the captured image locally in your browser. It will not write to your vehicle records until you explicitly save.</p><div class="ocr-actions"><button type="button" id="ocrRun" class="submit-button">RUN OCR</button><button type="button" id="ocrDiscard" class="large-action">DISCARD</button></div></div>`;document.getElementById("ocrRun")?.addEventListener("click",runOcr);document.getElementById("ocrDiscard")?.addEventListener("click",()=>reset());}
+    async function runOcr(){
+        if(!state.capturedImage||state.busy)return;state.busy=true;const result=document.getElementById("ocrResult"),runButton=document.getElementById("ocrRun");if(runButton)runButton.disabled=true;setStatus("Loading OCR engine… first use may take a little longer.","working");
+        try{const Tesseract=await loadTesseract();setStatus("Preparing image…","working");const image=await preprocessImage(state.capturedImage),worker=await Tesseract.createWorker("eng",1,{logger:m=>{if(m.status&&typeof m.progress==="number")setStatus(`OCR · ${m.status} · ${Math.round(m.progress*100)}%`,"working");}});try{const output=await worker.recognize(image);state.ocrText=output?.data?.text||"";state.confidence=output?.data?.confidence??null;}finally{await worker.terminate();}renderResult(parseText(state.ocrText));setStatus(`OCR complete${state.confidence!=null?` · confidence ${Math.round(state.confidence)}%`:""}. Verify the fields before saving.`);}
+        catch(error){console.error("DRIVE OCR failed",error);if(result)result.innerHTML=`<div class="ocr-card"><div class="ocr-card-head"><strong>OCR COULD NOT COMPLETE</strong></div><p class="ocr-note">The image is still available. Check your connection for the first-time OCR engine download, then try again.</p><div class="ocr-actions"><button type="button" id="ocrRetry" class="submit-button">TRY AGAIN</button><button type="button" id="ocrDiscard" class="large-action">DISCARD</button></div></div>`;document.getElementById("ocrRetry")?.addEventListener("click",runOcr);document.getElementById("ocrDiscard")?.addEventListener("click",()=>reset());setStatus("OCR could not complete. Your captured image has not been saved.","error");}
+        finally{state.busy=false;}
     }
 
-    function setStatus(message) { const el = document.getElementById("cameraStatus"); if (el) el.textContent = message; }
-
-    async function start() {
-        if (!navigator.mediaDevices?.getUserMedia) { setStatus("Camera access is not supported by this browser."); return; }
-        stop();
-        try {
-            state.capturedImage = null; state.ocrText = "";
-            state.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: state.facingMode }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
-            const preview = document.getElementById("cameraPreview"); preview.innerHTML = "";
-            const video = document.createElement("video"); video.autoplay = true; video.playsInline = true; video.muted = true; video.setAttribute("aria-label", "Live camera preview"); preview.appendChild(video); video.srcObject = state.stream;
-            document.getElementById("cameraCapture").disabled = false; document.getElementById("cameraStart").textContent = "RESTART CAMERA"; setStatus("Camera active. Frame the document or display clearly, then capture.");
-        } catch (error) { console.error("DRIVE camera access failed", error); setStatus("Camera access was not available. Check browser permission and try again."); }
-    }
-
-    function stop() { state.stream?.getTracks().forEach(track => track.stop()); state.stream = null; }
-
-    function capture() {
-        const video = document.querySelector("#cameraPreview video"); const canvas = document.getElementById("cameraCanvas"); if (!video || !canvas || !video.videoWidth) return;
-        canvas.width = video.videoWidth; canvas.height = video.videoHeight; canvas.getContext("2d", { willReadFrequently: true }).drawImage(video, 0, 0, canvas.width, canvas.height); state.capturedImage = canvas.toDataURL("image/jpeg", .88); stop(); document.getElementById("cameraCapture").disabled = true; document.getElementById("cameraStart").textContent = "RETAKE"; renderPreview(); prepareOcr();
-    }
-
-    function renderPreview() { const preview = document.getElementById("cameraPreview"); if (!preview || !state.capturedImage) return; preview.innerHTML = ""; const img = document.createElement("img"); img.src = state.capturedImage; img.alt = "Captured image for OCR review"; preview.appendChild(img); }
-
-    async function loadTesseract() {
-        if (window.Tesseract) return window.Tesseract;
-        await new Promise((resolve, reject) => { const existing = document.querySelector('script[data-drive-tesseract]'); if (existing) { existing.addEventListener("load", resolve, { once:true }); existing.addEventListener("error", reject, { once:true }); return; } const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"; script.async = true; script.dataset.driveTesseract = "true"; script.onload = resolve; script.onerror = () => reject(new Error("OCR engine could not be loaded")); document.head.appendChild(script); });
-        if (!window.Tesseract?.createWorker) throw new Error("OCR engine loaded without worker support");
-        return window.Tesseract;
-    }
-
-    function parseText(text) {
-        const clean = String(text || "").replace(/\r/g, "");
-        const lines = clean.split("\n").map(x => x.trim()).filter(Boolean);
-        const allNumbers = [...clean.matchAll(/\b\d{4,8}\b/g)].map(m => Number(m[0]));
-        const dates = [...clean.matchAll(/\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/g)].map(m => dateValue(m[0])).filter(Boolean);
-        if (state.mode === "odometer") {
-            const odometer = allNumbers.filter(n => n >= 10000 && n <= 99999999).sort((a,b) => a-b)[0] || "";
-            return { odometer, confidence: odometer ? "OCR detected a plausible odometer value. Verify it before saving." : "No clear odometer value found." };
+    async function saveResult(){
+        if(state.mode==="tyre"){setStatus("Tyre capture kept for review. Tyre records will be added in the tyre data stage.");return;}
+        const active=typeof getActiveVehicle==="function"?await getActiveVehicle():null;if(!active){setStatus("No active vehicle is available. Nothing was saved.","error");return;}
+        if(state.mode==="fuel"){
+            const odometer=Number(document.getElementById("ocrOdometer")?.value),litres=Number(document.getElementById("ocrLitres")?.value),cost=Number(document.getElementById("ocrCost")?.value),pricePerLitre=Number(document.getElementById("ocrPricePerLitre")?.value),date=document.getElementById("ocrDate")?.value;
+            if(!Number.isFinite(litres)||litres<=0||litres>500||!Number.isFinite(cost)||cost<0||cost>1000000||!/^\d{4}-\d{2}-\d{2}$/.test(date)){setStatus("Fuel entry is invalid. Check the editable values.","error");return;}
+            const records=(await getAllRecords("fuel")).filter(r=>!r.vehicleId||r.vehicleId===active.id).sort((a,b)=>Number(b.odometer||0)-Number(a.odometer||0)),previous=Number.isFinite(odometer)?records.find(r=>Number(r.odometer)<odometer):null,distance=previous?odometer-Number(previous.odometer):null;
+            await addRecord("fuel",{vehicleId:active.id,odometer:Number.isFinite(odometer)&&odometer>=0?odometer:null,litres,cost,pricePerLitre:Number.isFinite(pricePerLitre)&&pricePerLitre>0?pricePerLitre:null,date,distance:distance>0?distance:null,economy:distance>0?litres/distance*100:null,costPerKm:distance>0?cost/distance:null,source:"camera-ocr",ocrConfidence:state.confidence,ocrCapturedAt:new Date().toISOString(),createdAt:new Date().toISOString(),synced:false});
+            if(Number.isFinite(odometer)&&odometer>Number(active.odometer||0)){active.odometer=odometer;await putRecord("vehicles",active);}emitChanged("fuel");setStatus("Fuel entry saved to DRIVE.");
         }
-        if (state.mode === "service") {
-            const odometer = allNumbers.filter(n => n >= 10000 && n <= 99999999).sort((a,b) => a-b)[0] || "";
-            const costMatch = clean.match(/(?:P|BWP|TOTAL|AMOUNT|COST)\s*[:=]?\s*([0-9]+[.,][0-9]{1,2})/i);
-            const cost = costMatch ? num(costMatch[1]) : "";
-            const title = lines.find(x => /service|maintenance|repair|inspection|oil|brake|filter/i.test(x)) || lines[0] || "Service record";
-            return { title: title.slice(0,80), description: lines.slice(0,6).join(" — ").slice(0,500), odometer, cost, date: dates[0] || new Date().toISOString().slice(0,10), confidence: odometer || cost || dates.length ? "Review detected service values before saving." : "No strong service fields detected." };
+        if(state.mode==="odometer"){
+            const odometer=Number(document.getElementById("ocrOdometer")?.value);if(!Number.isInteger(odometer)||odometer<0||odometer>99999999){setStatus("Odometer value is invalid.","error");return;}if(odometer<Number(active.odometer||0)){setStatus(`Odometer cannot move backwards from ${Number(active.odometer).toLocaleString()} km.`,"error");return;}active.odometer=odometer;active.odometerUpdatedAt=new Date().toISOString();active.odometerSource="camera-ocr";await putRecord("vehicles",active);emitChanged("vehicles");setStatus("Odometer updated in DRIVE.");
         }
-        if (state.mode === "fuel") {
-            const litreMatch = clean.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:L|LTR|LITRE|LITRES)\b/i);
-            const priceMatch = clean.match(/(?:P|BWP)?\s*([0-9]+[.,][0-9]{2})\s*(?:\/\s*L|PER\s*L(?:ITRE)?)/i);
-            const totalMatch = clean.match(/(?:TOTAL|AMOUNT|SALE|PURCHASE)\s*[:=]?\s*(?:P|BWP)?\s*([0-9]+[.,][0-9]{2})/i);
-            const odometer = allNumbers.filter(n => n >= 10000 && n <= 99999999).sort((a,b) => a-b)[0] || "";
-            return { litres: litreMatch ? num(litreMatch[1]) : "", pricePerLitre: priceMatch ? num(priceMatch[1]) : "", cost: totalMatch ? num(totalMatch[1]) : "", odometer, date: dates[0] || new Date().toISOString().slice(0,10), confidence: litreMatch || totalMatch ? "Fuel values detected. Verify every value before saving." : "No strong fuel fields detected." };
+        if(state.mode==="service"){
+            const title=document.getElementById("ocrTitle")?.value.trim(),description=document.getElementById("ocrDescription")?.value.trim(),odometer=Number(document.getElementById("ocrOdometer")?.value),cost=Number(document.getElementById("ocrCost")?.value),date=document.getElementById("ocrDate")?.value;
+            if(!title||!/^\d{4}-\d{2}-\d{2}$/.test(date)||(Number.isFinite(cost)&&(cost<0||cost>1000000))){setStatus("Service entry is invalid. Check the editable values.","error");return;}
+            await addRecord("maintenance",{vehicleId:active.id,title,description:description||"Captured from service document.",odometer:Number.isFinite(odometer)&&odometer>=0?odometer:null,cost:Number.isFinite(cost)&&cost>=0?cost:0,date,intervalKm:null,intervalMonths:null,nextServiceOdometer:null,nextServiceDate:null,source:"camera-ocr",ocrConfidence:state.confidence,ocrCapturedAt:new Date().toISOString(),createdAt:new Date().toISOString(),synced:false});
+            if(Number.isFinite(odometer)&&odometer>Number(active.odometer||0)){active.odometer=odometer;await putRecord("vehicles",active);}emitChanged("maintenance");setStatus("Service record saved to DRIVE.");
         }
-        const tyre = clean.match(/\b(\d{3})\s*[\/-]\s*(\d{2})\s*R\s*(\d{2})\b/i);
-        const pressure = clean.match(/(?:PSI|BAR)\s*[:=]?\s*([0-9]+(?:[.,][0-9]+)?)/i);
-        return { tyreSize: tyre ? `${tyre[1]}/${tyre[2]} R${tyre[3]}` : "", pressure: pressure ? pressure[1] : "", confidence: tyre ? "Tyre size detected. Verify the sidewall reading." : "No clear tyre size detected." };
+        setTimeout(()=>reset(),500);
     }
-
-    function field(label, id, value, type="text") { return `<div class="ocr-field"><label for="${id}">${esc(label)}</label><input id="${id}" type="${type}" value="${esc(value)}"></div>`; }
-
-    function renderResult(parsed) {
-        const result = document.getElementById("ocrResult"); if (!result) return;
-        let fields = "";
-        if (state.mode === "fuel") fields = field("LITRES", "ocrLitres", parsed.litres, "number") + field("TOTAL COST (P)", "ocrCost", parsed.cost, "number") + field("ODOMETER (KM)", "ocrOdometer", parsed.odometer, "number") + field("DATE", "ocrDate", parsed.date, "date");
-        if (state.mode === "service") fields = field("SERVICE / REPAIR", "ocrTitle", parsed.title) + field("DESCRIPTION", "ocrDescription", parsed.description) + field("ODOMETER (KM)", "ocrOdometer", parsed.odometer, "number") + field("COST (P)", "ocrCost", parsed.cost, "number") + field("DATE", "ocrDate", parsed.date, "date");
-        if (state.mode === "odometer") fields = field("ODOMETER (KM)", "ocrOdometer", parsed.odometer, "number");
-        if (state.mode === "tyre") fields = field("TYRE SIZE", "ocrTyreSize", parsed.tyreSize) + field("PRESSURE", "ocrPressure", parsed.pressure);
-        result.innerHTML = `<div class="panel"><strong>OCR RESULT</strong><div class="ocr-confidence">${esc(parsed.confidence)}</div><div class="ocr-grid">${fields}</div><details><summary>RAW OCR TEXT</summary><div class="ocr-raw">${esc(state.ocrText || "No text returned")}</div></details><div class="ocr-actions"><button type="button" id="ocrSave" class="submit-button">${state.mode === "tyre" ? "KEEP FOR REVIEW" : "SAVE TO DRIVE"}</button><button type="button" id="ocrDiscard" class="large-action">DISCARD</button></div></div>`;
-        document.getElementById("ocrSave")?.addEventListener("click", saveResult);
-        document.getElementById("ocrDiscard")?.addEventListener("click", reset);
-    }
-
-    async function prepareOcr() {
-        setStatus("Capture complete. Nothing is saved yet. Run OCR to extract fields.");
-        const result = document.getElementById("ocrResult"); if (!result) return;
-        result.classList.remove("hidden"); result.innerHTML = `<div class="panel"><strong>REVIEW BEFORE SAVING</strong><p class="camera-status">OCR runs only when you request it. Detected values will remain editable before DRIVE writes anything to your vehicle records.</p><div class="ocr-actions"><button type="button" id="ocrRun" class="submit-button">RUN OCR</button><button type="button" id="ocrDiscard" class="large-action">DISCARD</button></div></div>`;
-        document.getElementById("ocrRun")?.addEventListener("click", runOcr); document.getElementById("ocrDiscard")?.addEventListener("click", reset);
-    }
-
-    async function runOcr() {
-        if (!state.capturedImage) return;
-        const result = document.getElementById("ocrResult"); const runButton = document.getElementById("ocrRun"); if (runButton) runButton.disabled = true;
-        setStatus("Loading local OCR engine… first run may take a little longer.");
-        try {
-            const Tesseract = await loadTesseract();
-            const worker = await Tesseract.createWorker("eng", 1, { logger: message => { if (message.status && typeof message.progress === "number") setStatus(`OCR: ${message.status} ${Math.round(message.progress * 100)}%`); } });
-            const output = await worker.recognize(state.capturedImage);
-            state.ocrText = output?.data?.text || "";
-            state.confidence = output?.data?.confidence ?? null;
-            await worker.terminate();
-            const parsed = parseText(state.ocrText);
-            renderResult(parsed);
-            setStatus(`OCR complete${state.confidence != null ? ` · confidence ${Math.round(state.confidence)}%` : ""}. Check the fields before saving.`);
-        } catch (error) { console.error("DRIVE OCR failed", error); if (result) result.innerHTML = `<div class="panel"><strong>OCR UNAVAILABLE</strong><p class="camera-status">The camera capture is safe and intact, but the OCR engine could not be loaded or started. Reconnect once and try again.</p><div class="ocr-actions"><button type="button" id="ocrRetry" class="submit-button">RETRY OCR</button><button type="button" id="ocrDiscard" class="large-action">DISCARD</button></div></div>`; result?.querySelector("#ocrRetry")?.addEventListener("click", runOcr); result?.querySelector("#ocrDiscard")?.addEventListener("click", reset); setStatus("OCR could not start. No data was saved."); }
-    }
-
-    async function saveResult() {
-        const active = await getActiveVehicle(); if (!active) { setStatus("No active vehicle is available. Nothing was saved."); return; }
-        try {
-            if (state.mode === "fuel") {
-                const odometer = Number(document.getElementById("ocrOdometer")?.value), litres = Number(document.getElementById("ocrLitres")?.value), cost = Number(document.getElementById("ocrCost")?.value), date = document.getElementById("ocrDate")?.value;
-                if (!(litres > 0) || !(cost >= 0) || !(odometer >= 0) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Check fuel fields");
-                const records = (await getAllRecords("fuel")).filter(r => !r.vehicleId || r.vehicleId === active.id).sort((a,b) => Number(b.odometer||0)-Number(a.odometer||0));
-                const previous = records.find(r => Number(r.odometer) < odometer) || records[0] || null;
-                const distance = previous && odometer > Number(previous.odometer) ? odometer - Number(previous.odometer) : null;
-                await addRecord("fuel", { vehicleId: active.id, odometer, litres, cost, date, distance, economy: distance ? litres / distance * 100 : null, costPerKm: distance ? cost / distance : null, source: "camera-ocr", ocrConfidence: state.confidence, ocrCapturedAt: new Date().toISOString(), createdAt: new Date().toISOString(), synced: false });
-                if (odometer > Number(active.odometer || 0)) { active.odometer = odometer; await putRecord("vehicles", active); }
-                window.dispatchEvent(new CustomEvent("drive:datachanged", { detail: { store: "fuel" } }));
-                setStatus("Fuel record saved to DRIVE.");
-            } else if (state.mode === "service") {
-                const title = document.getElementById("ocrTitle")?.value.trim(), description = document.getElementById("ocrDescription")?.value.trim(), odometer = Number(document.getElementById("ocrOdometer")?.value), cost = Number(document.getElementById("ocrCost")?.value), date = document.getElementById("ocrDate")?.value;
-                if (!title || !(odometer >= 0) || !(cost >= 0) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Check service fields");
-                await addRecord("maintenance", { vehicleId: active.id, title, description, odometer, cost, date, intervalKm: null, intervalMonths: null, nextServiceOdometer: null, nextServiceDate: null, source: "camera-ocr", ocrConfidence: state.confidence, ocrCapturedAt: new Date().toISOString(), createdAt: new Date().toISOString(), synced: false });
-                window.dispatchEvent(new CustomEvent("drive:datachanged", { detail: { store: "maintenance" } }));
-                setStatus("Service record saved to DRIVE.");
-            } else if (state.mode === "odometer") {
-                const odometer = Number(document.getElementById("ocrOdometer")?.value);
-                if (!(odometer >= 0) || odometer > 99999999 || odometer < Number(active.odometer || 0)) throw new Error("Odometer must be valid and not lower than the current vehicle value");
-                active.odometer = odometer; await putRecord("vehicles", active); window.dispatchEvent(new CustomEvent("drive:datachanged", { detail: { store: "vehicles" } })); setStatus("Vehicle odometer updated.");
-            } else {
-                setStatus("Tyre reading kept for review. DRIVE will add tyre records to the vehicle data model before saving them permanently.");
-                return;
-            }
-            renderSaved();
-        } catch (error) { console.error("DRIVE OCR save failed", error); setStatus("The detected values were not saved. Check the fields and try again."); }
-    }
-
-    function renderSaved() { const result = document.getElementById("ocrResult"); if (result) result.innerHTML = `<div class="panel"><strong>SAVED</strong><p class="camera-status">The confirmed ${esc(MODES[state.mode].toLowerCase())} has been added to DRIVE. You can return to More or capture another item.</p><div class="ocr-actions"><button type="button" id="ocrAgain" class="submit-button">CAPTURE ANOTHER</button></div></div>`; document.getElementById("ocrAgain")?.addEventListener("click", reset); }
-
-    function reset() { state.capturedImage = null; state.ocrText = ""; state.confidence = null; stop(); const preview = document.getElementById("cameraPreview"); if (preview) preview.innerHTML = `<div class="camera-placeholder">Camera is off.<br>Choose what you want DRIVE to read.</div>`; const result = document.getElementById("ocrResult"); result?.classList.add("hidden"); document.getElementById("cameraCapture")?.setAttribute("disabled", "true"); document.getElementById("cameraStart")?.removeAttribute("disabled"); document.getElementById("cameraStart").textContent = "START CAMERA"; setStatus("Local capture ready."); }
-
-    function open() { mount(); document.querySelectorAll(".page").forEach(p => p.classList.remove("active")); document.getElementById("cameraOcrPage")?.classList.add("active"); document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active")); document.getElementById("cameraOcrPage")?.focus?.({ preventScroll: true }); }
-
-    window.DRIVE_CAMERA = { open, start, capture, stop, reset };
-    document.addEventListener("DOMContentLoaded", () => { styles(); mount(); });
+    function emitChanged(store){window.dispatchEvent(new CustomEvent("drive:datachanged",{detail:{store}}));window.DRIVE_V07?.refresh();if(store==="maintenance")window.DRIVE_MAINTENANCE?.refresh?.();}
+    function reset(updateStatus=true){stop();state.capturedImage=null;state.ocrText="";state.confidence=null;state.busy=false;const preview=document.getElementById("cameraPreview");if(preview)preview.innerHTML=`<div class="camera-placeholder"><strong>Camera is off</strong>Choose a capture type below, then start the camera.</div>`;const captureButton=document.getElementById("cameraCapture");if(captureButton)captureButton.disabled=true;const startButton=document.getElementById("cameraStart");if(startButton)startButton.textContent="START CAMERA";const result=document.getElementById("ocrResult");if(result){result.classList.add("hidden");result.innerHTML="";}if(updateStatus)setStatus("Local capture ready. Nothing is saved automatically.");}
+    function open(){styles();mount();document.querySelectorAll(".page").forEach(page=>page.classList.remove("active"));const page=document.getElementById("cameraOcrPage");page?.classList.add("active");page?.focus({preventScroll:true});document.querySelectorAll(".nav-item").forEach(item=>item.classList.remove("active"));reset();}
+    window.DRIVE_CAMERA=Object.freeze({open,start,capture,stop,reset});
 })();
