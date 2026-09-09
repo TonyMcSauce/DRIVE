@@ -1,4 +1,4 @@
-const CACHE_VERSION = "drive-v0.8";
+const CACHE_VERSION = "drive-v0.9";
 const APP_SHELL = ["./","./index.html","./styles.css","./app.js","./db.js","./gps.js","./maintenance.js","./data-tools.js","./drive-data.js","./v0.6.js","./insights.js","./v0.7.js","./analytics.js","./accessibility.js","./vehicle-settings.js","./performance.js","./manifest.json","./icons/icon.svg"];
 self.addEventListener("install",event=>{event.waitUntil(caches.open(CACHE_VERSION).then(c=>c.addAll(APP_SHELL)));self.skipWaiting();});
 self.addEventListener("activate",event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith("drive-")&&k!==CACHE_VERSION).map(k=>caches.delete(k)))));self.clients.claim();});
