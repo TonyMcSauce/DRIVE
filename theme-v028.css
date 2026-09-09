@@ -1,0 +1,79 @@
+:root{
+  --bg:#f4f1eb;
+  --surface:rgba(255,255,255,.82);
+  --surface-2:#fffdf9;
+  --surface-3:#ebe7df;
+  --text:#1d2524;
+  --muted:#737a77;
+  --line:rgba(29,37,36,.10);
+  --accent:#5b6f63;
+  --accent-dark:#405247;
+  --accent-soft:#dce6df;
+  --blue:#52758a;
+  --blue-soft:#dce8ee;
+  --fuel:#b8784e;
+  --fuel-soft:#f3e0d2;
+  --danger:#b75c5c;
+  --danger-soft:#f3dada;
+  --warning:#a6813e;
+  --warning-soft:#eee3c6;
+  --radius:20px;
+}
+html{background:var(--bg);color-scheme:light}
+body{background:radial-gradient(circle at 92% -8%,rgba(91,111,99,.13),transparent 30%),radial-gradient(circle at 0% 35%,rgba(82,117,138,.07),transparent 28%),var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",sans-serif}
+.topbar{background:rgba(244,241,235,.86);border-bottom-color:var(--line)}
+.status-bar{background:rgba(235,231,223,.76);color:var(--muted)}
+.status-dot{background:var(--accent)}
+.icon-button,.metric-card,.panel,.action-button,.activity-icon,.trip-live-card,.fuel-summary>div,.vehicle-card,.settings-list button{background:var(--surface);border-color:var(--line);box-shadow:0 8px 30px rgba(29,37,36,.055)}
+.metric-card,.panel,.fuel-summary>div,.vehicle-card{backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.panel h2,.page-heading h1{color:var(--text)}
+.health-status,.live-indicator,.nav-item.active,.large-action span{color:var(--accent)}
+.health-bar{background:var(--surface-3)}
+.health-bar div{background:var(--accent)}
+.action-button.primary,.submit-button{background:var(--accent);border-color:var(--accent);color:#fffdf9}
+.drive-button{background:var(--surface-2)}
+.activity-list{border-top-color:var(--line)}
+.activity{border-bottom-color:var(--line)}
+.bottom-nav{background:rgba(244,241,235,.9);border-top-color:var(--line)}
+.nav-item{color:var(--muted)}
+.modal{background:rgba(29,37,36,.30)}
+.modal-sheet{background:var(--surface-2);box-shadow:0 -18px 50px rgba(29,37,36,.12)}
+.modal-handle{background:#c7c5be}
+.modal-close{background:var(--surface-3);border-color:var(--line)}
+input{background:var(--surface-2);border-color:var(--line);color:var(--text)}
+input:focus{border-color:rgba(91,111,99,.55);box-shadow:0 0 0 3px rgba(91,111,99,.10)}
+.calculation-preview{background:var(--accent-soft);border-color:rgba(91,111,99,.18)}
+.calculation-preview strong{color:var(--accent)}
+.large-action{background:var(--surface-2);color:var(--text)}
+.stop-button{background:var(--danger);color:#fff}
+.vehicle-image-placeholder{background:linear-gradient(145deg,#dfe5df,#cfd7d1);color:#7a8880}
+.version-badge{border-color:rgba(91,111,99,.22);color:var(--accent);background:var(--accent-soft)}
+.drive-briefing .briefing-item{background:var(--surface-2);border-color:var(--line)}
+.drive-briefing .briefing-item p{color:var(--text)}
+.drive-briefing .briefing-item.severity-attention{border-color:rgba(183,92,92,.32)}
+.drive-briefing .briefing-item.severity-watch{border-color:rgba(166,129,62,.30)}
+.drive-briefing .briefing-item.severity-positive{border-color:rgba(91,111,99,.28)}
+.drive-decision{background:var(--surface)!important;border-color:var(--line)!important;box-shadow:0 8px 30px rgba(29,37,36,.055)}
+.drive-decision .decision-kicker{color:var(--muted)!important}
+.drive-decision .decision-head h2{color:var(--text)}
+.drive-decision .decision-severity{background:var(--surface-3)!important;color:var(--muted)!important}
+.drive-decision .decision-severity.attention{color:var(--danger)!important;background:var(--danger-soft)!important}
+.drive-decision .decision-severity.watch{color:var(--warning)!important;background:var(--warning-soft)!important}
+.drive-decision .decision-severity.positive{color:var(--accent)!important;background:var(--accent-soft)!important}
+.drive-decision .decision-message,.drive-decision .decision-details dd,.drive-decision .decision-row strong{color:var(--text)}
+.drive-decision .decision-action{border-left-color:var(--accent);background:var(--accent-soft)}
+.drive-decision .decision-details{border-top-color:var(--line)}
+.drive-decision .decision-details summary,.drive-decision .decision-details p,.drive-decision .decision-details dt,.drive-decision .decision-row p{color:var(--muted)}
+.drive-decision .decision-row{border-top-color:var(--line)}
+@media(prefers-color-scheme:dark){
+ :root{--bg:#171a18;--surface:rgba(31,35,32,.84);--surface-2:#202421;--surface-3:#292e2a;--text:#f1f0eb;--muted:#a5aaa5;--line:rgba(241,240,235,.10);--accent:#a8c0b1;--accent-dark:#8eaa99;--accent-soft:#2b3830;--blue:#9bb8c8;--blue-soft:#27343b;--fuel:#d09a73;--fuel-soft:#3b2d25;--danger:#d68a8a;--danger-soft:#3b2929;--warning:#d0b56f;--warning-soft:#393323}
+ html{background:var(--bg);color-scheme:dark}
+ body{background:radial-gradient(circle at 92% -8%,rgba(168,192,177,.10),transparent 30%),radial-gradient(circle at 0% 35%,rgba(155,184,200,.06),transparent 28%),var(--bg)}
+ .topbar{background:rgba(23,26,24,.86)}
+ .status-bar{background:rgba(41,46,42,.76)}
+ .bottom-nav{background:rgba(23,26,24,.92)}
+ .modal-sheet{background:var(--surface-2)}
+ .vehicle-image-placeholder{background:linear-gradient(145deg,#303631,#242925);color:#78827c}
+ .action-button.primary,.submit-button{color:#182019}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
