@@ -68,13 +68,9 @@
         button.innerHTML = `<span class="action-icon" aria-hidden="true">●</span><span>START DRIVE</span>`;
         button.addEventListener("click", () => window.DRIVE_APP?.startDrive?.());
 
-        if (history) {
-            history.insertAdjacentElement("beforebegin", button);
-        } else if (empty) {
-            empty.insertAdjacentElement("beforebegin", button);
-        } else {
-            page.appendChild(button);
-        }
+        if (history) history.insertAdjacentElement("beforebegin", button);
+        else if (empty) empty.insertAdjacentElement("beforebegin", button);
+        else page.appendChild(button);
     }
 
     function syncTripStartAction() {
@@ -173,29 +169,35 @@
     async function renderTrips() {
         mountTripStartAction();
         syncTripStartAction();
-        const trips = (await getAllRecords("trips")).filter(belongsToActiveVehicle).sort((a, b) => new Date(b.startTime || b.createdAt) - new Date(a.startTime || a.createdAt));
+        const trips = (await getAllRecords("trips"))
+            .filter(belongsToActiveVehicle)
+            .sort((a, b) => new Date(b.startTime || b.createdAt) - new Date(a.startTime || a.createdAt));
         const oldEmpty = document.querySelector("#tripsPage .empty-state");
-        let history = $("tripHistory");
-        if (!history) {
-            history = document.createElement("div");
-            history.id = "tripHistory";
-            history.className = "history-list";
-            const anchor = oldEmpty || $("tripsPage").querySelector(".page-heading");
-            if (anchor) anchor.insertAdjacentElement("afterend", history);
-        }
+        const history = $("tripHistory");
+        if (!history) return;
+
         if (!trips.length) {
             history.innerHTML = "";
             if (oldEmpty) oldEmpty.style.display = "block";
             return;
         }
+
         if (oldEmpty) oldEmpty.style.display = "none";
-        history.innerHTML = trips.slice(0, 30).map(trip => {
-            const start = new Date(trip.startTime);
-            const end = new Date(trip.endTime || trip.startTime);
-            const duration = Math.max(0, end - start);
+        history.innerHTML = trips.map((trip, index) => {
+            const start = new Date(trip.startTime || trip.createdAt);
+            const end = new Date(trip.endTime || trip.startTime || trip.createdAt);
+            const duration = Number(trip.duration) > 0 ? Number(trip.duration) : Math.max(0, end - start);
             const distance = Number(trip.distance || 0);
             const averageSpeed = duration > 0 ? distance / (duration / 3600000) : 0;
-            return `<article class="activity"><div class="activity-icon trip">→</div><div class="activity-info"><strong>${distance.toFixed(2)} km drive</strong><span>${dateLabel(trip.startTime)} · ${formatDuration(duration)}</span></div><div class="activity-value">${averageSpeed ? `${averageSpeed.toFixed(0)} km/h` : "—"}</div></article>`;
+            const pointCount = Array.isArray(trip.points) ? trip.points.length : 0;
+            const day = start.toLocaleDateString(undefined, { weekday: "short" });
+            const time = start.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+            return `<article class="trip-history-item" data-trip-index="${index}">
+                <div class="trip-history-icon" aria-hidden="true">→</div>
+                <div class="trip-history-main"><strong>${distance.toFixed(2)} km drive</strong><span>${day}, ${dateLabel(start)} · ${time} · ${formatDuration(duration)}</span></div>
+                <div class="trip-history-value"><strong>${averageSpeed ? `${averageSpeed.toFixed(0)} km/h` : "—"}</strong><span>AVG</span></div>
+                <div class="trip-history-route">${pointCount ? `${pointCount.toLocaleString()} GPS POINTS RECORDED` : "DISTANCE RECORDED · NO GPS TRACE"}</div>
+            </article>`;
         }).join("");
         syncTripStartAction();
     }
