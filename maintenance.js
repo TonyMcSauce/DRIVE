@@ -28,11 +28,8 @@ function ensureModal(){
   m.innerHTML=`<div class="modal-sheet"><div class="modal-handle" aria-hidden="true"></div><div class="modal-header"><div><span class="eyebrow">SERVICE RECORD</span><h2 id="maintenance-modal-title">Maintenance</h2></div><button type="button" class="modal-close" data-close-maintenance aria-label="Close maintenance">×</button></div><form id="maintenanceForm"><label for="maintenanceTitle">Service / repair<input id="maintenanceTitle" required maxlength="100" placeholder="Oil service, brakes, battery…"></label><label for="maintenanceDescription">Notes<textarea id="maintenanceDescription" rows="3" maxlength="500" placeholder="What was done?"></textarea></label><label for="maintenanceOdometer">Odometer<div class="input-unit"><input id="maintenanceOdometer" type="number" min="0" step="1" inputmode="numeric" required><span aria-hidden="true">KM</span></div></label><label for="maintenanceCost">Cost<div class="input-unit"><span aria-hidden="true">P</span><input id="maintenanceCost" type="number" min="0" step="0.01" inputmode="decimal" value="0"></div></label><label for="maintenanceDate">Date<input id="maintenanceDate" type="date" required></label><div class="form-grid"><div><label for="maintenanceIntervalKm">Next service interval (km)</label><input id="maintenanceIntervalKm" type="number" min="0" step="1" inputmode="numeric"><small>Optional</small></div><div><label for="maintenanceIntervalMonths">Next service interval (months)</label><input id="maintenanceIntervalMonths" type="number" min="0" step="1" inputmode="numeric"><small>Optional</small></div></div><button class="submit-button" type="submit">SAVE SERVICE</button></form><div id="maintenanceHistory" class="tool-history"></div></div>`;
   document.body.appendChild(m);
  } else {
-  /* The original static modal had no history container. Add it without replacing the form. */
   const sheet=m.querySelector('.modal-sheet');
-  if(sheet&&!sheet.querySelector('#maintenanceHistory')){
-   const history=document.createElement('div');history.id='maintenanceHistory';history.className='tool-history';sheet.appendChild(history);
-  }
+  if(sheet&&!sheet.querySelector('#maintenanceHistory')){const history=document.createElement('div');history.id='maintenanceHistory';history.className='tool-history';sheet.appendChild(history);}
  }
  const close=m.querySelector('[data-close-maintenance]');
  if(close&&!close.dataset.bound){close.dataset.bound='1';close.onclick=()=>m.classList.add('hidden')}
@@ -69,5 +66,6 @@ async function refresh(){
  anchor.parentNode.insertBefore(section,anchor.nextSibling);section.querySelector('.service-record-button')?.addEventListener('click',openMaintenance);
 }
 window.DRIVE_MAINTENANCE={refresh,intelligence,openMaintenance,mountForm,renderHistory};
-document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>refresh().catch(console.error),300));
+function boot(){refresh().catch(console.error)}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
