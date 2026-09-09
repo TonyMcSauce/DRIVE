@@ -48,3 +48,12 @@
     }
     window.DRIVE_FUEL_INTEL={analyse,refresh};
 })();
+
+// Load the next intelligence layer after Fuel Intelligence is available.
+(() => {
+    if (document.querySelector('script[data-drive-module="trip-intelligence"]')) return;
+    const script = document.createElement("script");
+    script.src = "./trip-intelligence.js?v=0.9.2";
+    script.dataset.driveModule = "trip-intelligence";
+    document.head.appendChild(script);
+})();
