@@ -36,6 +36,7 @@
             await renderFuel();
             await renderTrips();
             await renderRecentActivity();
+            mountTripStartAction();
         } catch (error) {
             console.error("DRIVE v0.6 initialisation failed:", error);
         }
@@ -52,6 +53,39 @@
                 }
             }
         }
+    }
+
+    function mountTripStartAction() {
+        const page = $("tripsPage");
+        if (!page || $("tripStartButton")) return;
+
+        const history = $("tripHistory");
+        const empty = page.querySelector(".empty-state");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.id = "tripStartButton";
+        button.className = "large-action trip-start-action";
+        button.innerHTML = `<span class="action-icon" aria-hidden="true">●</span><span>START DRIVE</span>`;
+        button.addEventListener("click", () => window.DRIVE_APP?.startDrive?.());
+
+        if (history) {
+            history.insertAdjacentElement("beforebegin", button);
+        } else if (empty) {
+            empty.insertAdjacentElement("beforebegin", button);
+        } else {
+            page.appendChild(button);
+        }
+    }
+
+    function syncTripStartAction() {
+        const button = $("tripStartButton");
+        if (!button) return;
+        const active = window.DRIVE_APP?.isTripActive?.();
+        button.classList.toggle("hidden", Boolean(active));
+        button.disabled = Boolean(active);
+        button.innerHTML = active
+            ? `<span class="action-icon" aria-hidden="true">●</span><span>DRIVING</span>`
+            : `<span class="action-icon" aria-hidden="true">●</span><span>START DRIVE</span>`;
     }
 
     async function renderVehicle() {
@@ -137,22 +171,24 @@
     }
 
     async function renderTrips() {
+        mountTripStartAction();
+        syncTripStartAction();
         const trips = (await getAllRecords("trips")).filter(belongsToActiveVehicle).sort((a, b) => new Date(b.startTime || b.createdAt) - new Date(a.startTime || a.createdAt));
         const oldEmpty = document.querySelector("#tripsPage .empty-state");
-        if (!oldEmpty) return;
         let history = $("tripHistory");
         if (!history) {
             history = document.createElement("div");
             history.id = "tripHistory";
             history.className = "history-list";
-            oldEmpty.parentNode.insertBefore(history, oldEmpty);
+            const anchor = oldEmpty || $("tripsPage").querySelector(".page-heading");
+            if (anchor) anchor.insertAdjacentElement("afterend", history);
         }
         if (!trips.length) {
             history.innerHTML = "";
-            oldEmpty.style.display = "block";
+            if (oldEmpty) oldEmpty.style.display = "block";
             return;
         }
-        oldEmpty.style.display = "none";
+        if (oldEmpty) oldEmpty.style.display = "none";
         history.innerHTML = trips.slice(0, 30).map(trip => {
             const start = new Date(trip.startTime);
             const end = new Date(trip.endTime || trip.startTime);
@@ -161,6 +197,7 @@
             const averageSpeed = duration > 0 ? distance / (duration / 3600000) : 0;
             return `<article class="activity"><div class="activity-icon trip">→</div><div class="activity-info"><strong>${distance.toFixed(2)} km drive</strong><span>${dateLabel(trip.startTime)} · ${formatDuration(duration)}</span></div><div class="activity-value">${averageSpeed ? `${averageSpeed.toFixed(0)} km/h` : "—"}</div></article>`;
         }).join("");
+        syncTripStartAction();
     }
 
     async function renderRecentActivity() {
