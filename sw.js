@@ -1,7 +1,9 @@
 const CACHE_VERSION = "drive-v0.7";
 
 const APP_SHELL = [
-    "./", "./index.html", "./styles.css", "./app.js", "./db.js", "./gps.js", "./manifest.json", "./icons/icon.svg"
+    "./", "./index.html", "./styles.css", "./app.js", "./db.js", "./gps.js",
+    "./maintenance.js", "./data-tools.js", "./v0.6.js", "./insights.js", "./v0.7.js",
+    "./manifest.json", "./icons/icon.svg"
 ];
 
 self.addEventListener("install", event => {
