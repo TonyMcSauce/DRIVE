@@ -1,11 +1,10 @@
-/* DRIVE v0.7 — vehicle intelligence dashboard */
+/* DRIVE v0.8 — vehicle intelligence dashboard */
 (() => {
     "use strict";
 
     const $ = id => document.getElementById(id);
     const money = n => `P${Number(n || 0).toFixed(2)}`;
     const esc = v => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-
     const dateOf = r => new Date(r?.date || r?.startTime || r?.createdAt || 0);
     const sameVehicle = (r, vehicle) => !vehicle?.id || r.vehicleId == null || r.vehicleId === vehicle.id;
     const monthKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -16,13 +15,7 @@
         const [fuel, trips, maintenance, expenses] = await Promise.all([
             getAllRecords("fuel"), getAllRecords("trips"), getAllRecords("maintenance"), getAllRecords("expenses")
         ]);
-        return {
-            vehicle,
-            fuel: fuel.filter(r => sameVehicle(r, vehicle)),
-            trips: trips.filter(r => sameVehicle(r, vehicle)),
-            maintenance: maintenance.filter(r => sameVehicle(r, vehicle)),
-            expenses: expenses.filter(r => sameVehicle(r, vehicle))
-        };
+        return { vehicle, fuel:fuel.filter(r=>sameVehicle(r,vehicle)), trips:trips.filter(r=>sameVehicle(r,vehicle)), maintenance:maintenance.filter(r=>sameVehicle(r,vehicle)), expenses:expenses.filter(r=>sameVehicle(r,vehicle)) };
     }
 
     function injectStyles() {
@@ -39,70 +32,43 @@
     }
 
     function mount() {
-        injectStyles();
-        const dashboard = $("dashboardPage");
-        const anchor = dashboard?.querySelector(".metric-grid");
-        if (!anchor || $("v07Dashboard")) return;
-        anchor.insertAdjacentHTML("afterend", `
-            <section id="v07Dashboard" class="v07-section">
-                <div class="v07-title"><span>VEHICLE INTELLIGENCE</span></div>
-                <div id="v07Kpis" class="v07-grid"></div>
-                <div class="v07-title" style="margin-top:24px"><span>MONTHLY FUEL SPEND</span></div>
-                <div id="v07Chart" class="v07-chart"></div>
-                <div class="v07-title" style="margin-top:24px"><span>DRIVING PROFILE</span></div>
-                <div id="v07Driving" class="v07-drive-summary"></div>
-                <div class="v07-title" style="margin-top:24px"><span>HEALTH MONITOR</span></div>
-                <div id="v07Health"></div>
-            </section>`);
+        injectStyles(); const dashboard=$( "dashboardPage"); const anchor=dashboard?.querySelector(".metric-grid"); if(!anchor||$("v07Dashboard"))return;
+        anchor.insertAdjacentHTML("afterend",`<section id="v07Dashboard" class="v07-section"><div class="v07-title"><span>VEHICLE INTELLIGENCE</span></div><div id="v07Kpis" class="v07-grid"></div><div class="v07-title" style="margin-top:24px"><span>MONTHLY FUEL SPEND</span></div><div id="v07Chart" class="v07-chart"></div><div class="v07-title" style="margin-top:24px"><span>DRIVING PROFILE</span></div><div id="v07Driving" class="v07-drive-summary"></div><div class="v07-title" style="margin-top:24px"><span>HEALTH MONITOR</span></div><div id="v07Health"></div></section>`);
     }
 
     function renderKpis(d) {
-        const now = new Date(); const key = monthKey(now);
-        const mf = d.fuel.filter(r => monthKey(dateOf(r)) === key);
-        const mt = d.trips.filter(r => monthKey(dateOf(r)) === key);
-        const me = d.expenses.filter(r => monthKey(dateOf(r)) === key);
-        const mm = d.maintenance.filter(r => monthKey(dateOf(r)) === key);
-        const fuel = mf.reduce((s,r)=>s+Number(r.cost||0),0);
-        const other = me.reduce((s,r)=>s+Number(r.amount||0),0);
-        const service = mm.reduce((s,r)=>s+Number(r.cost||0),0);
-        const distance = mt.reduce((s,r)=>s+Number(r.distance||0),0);
-        const litres = mf.reduce((s,r)=>s+Number(r.litres||0),0);
-        const economy = mf.reduce((s,r)=>s+Number(r.distance||0),0) > 0 ? litres / mf.reduce((s,r)=>s+Number(r.distance||0),0) * 100 : null;
-        $("v07Kpis").innerHTML = [
-            ["RUNNING COST", money(fuel+other+service), "this month"],
-            ["FUEL ECONOMY", economy != null ? economy.toFixed(2) : "—", "L / 100 KM"],
-            ["DISTANCE", distance.toFixed(1), "KM this month"],
-            ["FUEL SPEND", money(fuel), `${mf.length} fill-up${mf.length===1?'':'s'}`]
-        ].map(x=>`<article class="v07-card"><span>${x[0]}</span><strong>${x[1]}</strong><small>${x[2]}</small></article>`).join("");
+        const now=new Date(),key=monthKey(now),mf=d.fuel.filter(r=>monthKey(dateOf(r))===key),mt=d.trips.filter(r=>monthKey(dateOf(r))===key),me=d.expenses.filter(r=>monthKey(dateOf(r))===key),mm=d.maintenance.filter(r=>monthKey(dateOf(r))===key);
+        const fuel=mf.reduce((s,r)=>s+Number(r.cost||0),0),other=me.reduce((s,r)=>s+Number(r.amount||0),0),service=mm.reduce((s,r)=>s+Number(r.cost||0),0),distance=mt.reduce((s,r)=>s+Number(r.distance||0),0),litres=mf.reduce((s,r)=>s+Number(r.litres||0),0),fuelDistance=mf.reduce((s,r)=>s+Number(r.distance||0),0),economy=fuelDistance>0?litres/fuelDistance*100:null;
+        $("v07Kpis").innerHTML=[["RUNNING COST",money(fuel+other+service),"this month"],["FUEL ECONOMY",economy!=null?economy.toFixed(2):"—","L / 100 KM"],["DISTANCE",distance.toFixed(1),"KM this month"],["FUEL SPEND",money(fuel),`${mf.length} fill-up${mf.length===1?'':'s'}`]].map(x=>`<article class="v07-card"><span>${x[0]}</span><strong>${x[1]}</strong><small>${x[2]}</small></article>`).join("");
     }
 
     function renderChart(d) {
-        const now = new Date(); const months=[];
-        for(let i=5;i>=0;i--){const x=new Date(now.getFullYear(),now.getMonth()-i,1);months.push(x)}
-        const vals=months.map(m=>d.fuel.filter(r=>monthKey(dateOf(r))===monthKey(m)).reduce((s,r)=>s+Number(r.cost||0),0));
-        const max=Math.max(...vals,1);
+        const now=new Date(),months=[]; for(let i=5;i>=0;i--)months.push(new Date(now.getFullYear(),now.getMonth()-i,1));
+        const vals=months.map(m=>d.fuel.filter(r=>monthKey(dateOf(r))===monthKey(m)).reduce((s,r)=>s+Number(r.cost||0),0)),max=Math.max(...vals,1);
         $("v07Chart").innerHTML=months.map((m,i)=>`<div class="v07-bar-wrap"><div class="v07-bar" title="${money(vals[i])}" style="height:${Math.max(3,vals[i]/max*118)}px"></div><small>${monthName(m)}</small></div>`).join("");
     }
 
     function renderDriving(d) {
-        const distance=d.trips.reduce((s,r)=>s+Number(r.distance||0),0);
-        const duration=d.trips.reduce((s,r)=>s+Number(r.duration||0),0);
-        const avg=duration>0?distance/(duration/3600000):0;
+        const distance=d.trips.reduce((s,r)=>s+Number(r.distance||0),0),duration=d.trips.reduce((s,r)=>s+Number(r.duration||0),0),avg=duration>0?distance/(duration/3600000):0;
         $("v07Driving").innerHTML=`<div class="v07-big"><strong>${distance.toFixed(1)} km</strong><span>LIFETIME RECORDED DISTANCE</span></div><div class="v07-big"><strong>${d.trips.length}</strong><span>DRIVES</span></div><div class="v07-big"><strong>${avg?avg.toFixed(0):"—"}</strong><span>AVG KM/H</span></div>`;
     }
 
-    function renderHealth(d) {
-        const now=Date.now(); const lastFuel=Math.max(...d.fuel.map(r=>dateOf(r).getTime()),0); const lastService=Math.max(...d.maintenance.map(r=>dateOf(r).getTime()),0);
-        const overdueService=d.maintenance.some(r=>Number(r.nextServiceOdometer)>0 && Number(d.vehicle?.odometer||0)>=Number(r.nextServiceOdometer));
+    async function renderHealth(d) {
+        const now=Date.now(),lastFuel=Math.max(...d.fuel.map(r=>dateOf(r).getTime()),0);
+        const service=window.DRIVE_MAINTENANCE?.serviceIntelligence || await window.DRIVE_MAINTENANCE?.intelligence?.();
         let score=100; const issues=[];
-        if(!d.fuel.length){score-=15;issues.push(["Fuel data","ADD DATA","warn"])} else if(now-lastFuel>45*86400000){score-=10;issues.push(["Fuel history","STALE","warn"])}
-        if(!d.maintenance.length){score-=10;issues.push(["Maintenance","BASELINE NEEDED","warn"])} else if(overdueService){score-=25;issues.push(["Service","OVERDUE","danger"])} else issues.push(["Service","ON TRACK","good"]);
+        if(!d.fuel.length){score-=15;issues.push(["Fuel data","ADD DATA","warn"])} else if(now-lastFuel>45*86400000){score-=10;issues.push(["Fuel history","STALE","warn"])} else issues.push(["Fuel history","CURRENT","good"]);
+        if(!d.maintenance.length){score-=10;issues.push(["Maintenance","BASELINE NEEDED","warn"])}
+        else if(service?.status==="overdue"){score-=25;issues.push(["Service","OVERDUE","danger"])}
+        else if(service?.status==="due-soon"){score-=10;issues.push(["Service","DUE SOON","warn"])}
+        else if(service?.status==="baseline"){score-=5;issues.push(["Service","NO INTERVAL","warn"])}
+        else issues.push(["Service","ON TRACK","good"]);
         if(d.trips.length<3){score-=5;issues.push(["GPS history","BUILDING","warn"])} else issues.push(["GPS history","ACTIVE","good"]);
         score=Math.max(0,score); const status=score>=80?"GOOD":score>=60?"WATCH":"ATTENTION";
         $("v07Health").innerHTML=`<div class="v07-health"><div class="v07-health-head"><div><span class="eyebrow">SYSTEM SCORE</span><div class="v07-health-score">${score}<small style="font-size:14px;color:var(--muted)"> / 100</small></div></div><b class="v07-health-status">${status}</b></div><div class="v07-health-track"><div class="v07-health-fill" style="width:${score}%"></div></div><div class="v07-health-list">${issues.map(i=>`<div class="v07-health-item"><span>${esc(i[0])}</span><b class="v07-${i[2]}">${esc(i[1])}</b></div>`).join("")}</div></div>`;
     }
 
-    async function refresh() { mount(); const d=await data(); renderKpis(d); renderChart(d); renderDriving(d); renderHealth(d); }
+    async function refresh(){mount();const d=await data();renderKpis(d);renderChart(d);renderDriving(d);await renderHealth(d);}
     window.DRIVE_V07={refresh};
-    if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>refresh().catch(console.error)); else refresh().catch(console.error);
+    if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>refresh().catch(console.error));else refresh().catch(console.error);
 })();
