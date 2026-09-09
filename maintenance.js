@@ -1,168 +1,73 @@
 /* DRIVE v0.6 — Maintenance & Expenses */
 (() => {
     "use strict";
-
-    let maintenanceModal;
-    let expenseModal;
-
     const $ = id => document.getElementById(id);
     const money = value => `P${Number(value || 0).toFixed(2)}`;
+    const today = () => new Date().toISOString().split("T")[0];
+    const esc = value => String(value ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
 
-    function today() {
-        return new Date().toISOString().split("T")[0];
+    function modal(id, title, eyebrow, body) {
+        if ($(id)) return $(id);
+        const el = document.createElement("div");
+        el.id = id; el.className = "modal hidden";
+        el.innerHTML = `<div class="modal-sheet"><div class="modal-handle"></div><div class="modal-header"><div><span class="eyebrow">${eyebrow}</span><h2>${title}</h2></div><button class="modal-close" data-close="${id}">×</button></div>${body}</div>`;
+        document.body.appendChild(el);
+        el.addEventListener("click", e => { if (e.target === el) el.classList.add("hidden"); });
+        el.querySelector("[data-close]").addEventListener("click", () => el.classList.add("hidden"));
+        return el;
     }
 
-    function openModal(id) {
-        const modal = $(id);
-        if (modal) modal.classList.remove("hidden");
+    function ensureUI() {
+        modal("maintenanceModal", "Maintenance", "SERVICE RECORD", `<form id="maintenanceForm">
+            <label>Service / repair<input id="maintenanceTitle" type="text" placeholder="Engine oil + filter" required></label>
+            <label>Description<input id="maintenanceDescription" type="text" placeholder="What was done?"></label>
+            <label>Odometer<div class="input-unit"><input id="maintenanceOdometer" type="number" inputmode="decimal" placeholder="128421"><span>KM</span></div></label>
+            <label>Cost<div class="input-unit"><span>P</span><input id="maintenanceCost" type="number" inputmode="decimal" step="0.01" placeholder="1240"></div></label>
+            <label>Date<input id="maintenanceDate" type="date" required></label>
+            <button class="submit-button" type="submit">SAVE SERVICE RECORD</button>
+        </form>`);
+        modal("expenseModal", "Expense", "VEHICLE COST", `<form id="expenseForm">
+            <label>Category<select id="expenseCategory"><option>Parts</option><option>Tyres</option><option>Repairs</option><option>Insurance</option><option>Licensing</option><option>Other</option></select></label>
+            <label>Description<input id="expenseDescription" type="text" placeholder="What did you spend on?"></label>
+            <label>Amount<div class="input-unit"><span>P</span><input id="expenseAmount" type="number" inputmode="decimal" step="0.01" placeholder="500"></div></label>
+            <label>Odometer<div class="input-unit"><input id="expenseOdometer" type="number" inputmode="decimal"><span>KM</span></div></label>
+            <label>Date<input id="expenseDate" type="date" required></label>
+            <button class="submit-button" type="submit">SAVE EXPENSE</button>
+        </form>`);
     }
 
-    function closeModal(id) {
-        const modal = $(id);
-        if (modal) modal.classList.add("hidden");
-    }
-
-    async function vehicle() {
-        return typeof getActiveVehicle === "function" ? getActiveVehicle() : null;
-    }
-
-    async function renderMaintenance() {
-        const list = $("maintenanceHistory");
-        if (!list) return;
-
-        const active = await vehicle();
-        const records = (await getAllRecords("maintenance"))
-            .filter(r => !active?.id || r.vehicleId == null || r.vehicleId === active.id)
-            .sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
-
-        if (!records.length) {
-            list.innerHTML = `<div class="empty-state"><div class="empty-icon">🔧</div><h2>No service records</h2><p>Keep your maintenance history here so DRIVE can track what was done and when.</p></div>`;
-            return;
-        }
-
-        list.innerHTML = records.slice(0, 50).map(r => `
-            <article class="activity">
-                <div class="activity-icon service">🔧</div>
-                <div class="activity-info">
-                    <strong>${escapeHtml(r.title || r.type || "Maintenance")}</strong>
-                    <span>${escapeHtml(r.description || "Service record")} · ${escapeHtml(r.date || "")}</span>
-                </div>
-                <div class="activity-value">${r.cost != null ? money(r.cost) : "—"}</div>
-            </article>
-        `).join("");
-    }
-
-    async function renderExpenses() {
-        const list = $("expenseHistory");
-        if (!list) return;
-
-        const active = await vehicle();
-        const records = (await getAllRecords("expenses"))
-            .filter(r => !active?.id || r.vehicleId == null || r.vehicleId === active.id)
-            .sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
-
-        if (!records.length) {
-            list.innerHTML = `<div class="empty-state"><div class="empty-icon">P</div><h2>No expenses</h2><p>Track tyres, repairs, parts, insurance and other vehicle costs here.</p></div>`;
-            return;
-        }
-
-        list.innerHTML = records.slice(0, 50).map(r => `
-            <article class="activity">
-                <div class="activity-icon service">P</div>
-                <div class="activity-info">
-                    <strong>${escapeHtml(r.category || "Expense")}</strong>
-                    <span>${escapeHtml(r.description || "Vehicle expense")} · ${escapeHtml(r.date || "")}</span>
-                </div>
-                <div class="activity-value">${money(r.amount)}</div>
-            </article>
-        `).join("");
-    }
-
-    function escapeHtml(value) {
-        return String(value ?? "")
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
-    }
-
-    async function saveMaintenance(event) {
-        event.preventDefault();
-        const active = await vehicle();
-        const record = {
-            vehicleId: active?.id,
-            title: $("maintenanceTitle").value.trim(),
-            description: $("maintenanceDescription").value.trim(),
-            odometer: Number($("maintenanceOdometer").value || 0),
-            cost: Number($("maintenanceCost").value || 0),
-            date: $("maintenanceDate").value || today(),
-            createdAt: new Date().toISOString(),
-            synced: false
-        };
-        await addRecord("maintenance", record);
-        closeModal("maintenanceModal");
-        event.target.reset();
-        $("maintenanceDate").value = today();
-        await refresh();
-    }
-
-    async function saveExpense(event) {
-        event.preventDefault();
-        const active = await vehicle();
-        const record = {
-            vehicleId: active?.id,
-            category: $("expenseCategory").value,
-            description: $("expenseDescription").value.trim(),
-            amount: Number($("expenseAmount").value || 0),
-            odometer: Number($("expenseOdometer").value || 0),
-            date: $("expenseDate").value || today(),
-            createdAt: new Date().toISOString(),
-            synced: false
-        };
-        await addRecord("expenses", record);
-        closeModal("expenseModal");
-        event.target.reset();
-        $("expenseDate").value = today();
-        await refresh();
-    }
-
+    async function activeVehicle() { return typeof getActiveVehicle === "function" ? getActiveVehicle() : null; }
     async function refresh() {
-        await Promise.all([
-            renderMaintenance(),
-            renderExpenses(),
-            typeof renderRecentActivity === "function" ? renderRecentActivity() : Promise.resolve(),
-            typeof renderDashboard === "function" ? renderDashboard() : Promise.resolve()
-        ]);
+        const vehicle = await activeVehicle();
+        const filter = records => records.filter(r => !vehicle?.id || r.vehicleId == null || r.vehicleId === vehicle.id);
+        const maintenance = filter(await getAllRecords("maintenance")).sort((a,b)=>new Date(b.date||b.createdAt)-new Date(a.date||a.createdAt));
+        const expenses = filter(await getAllRecords("expenses")).sort((a,b)=>new Date(b.date||b.createdAt)-new Date(a.date||a.createdAt));
+        window.DRIVE_MAINTENANCE.lastMaintenance = maintenance;
+        window.DRIVE_MAINTENANCE.lastExpenses = expenses;
+        if (typeof renderRecentActivity === "function") await renderRecentActivity();
     }
 
     function setup() {
-        maintenanceModal = $("maintenanceModal");
-        expenseModal = $("expenseModal");
-
-        $("maintenanceForm")?.addEventListener("submit", saveMaintenance);
-        $("expenseForm")?.addEventListener("submit", saveExpense);
-
-        $("maintenanceDate")?.setAttribute("value", today());
-        if ($("maintenanceDate")) $("maintenanceDate").value = today();
-        if ($("expenseDate")) $("expenseDate").value = today();
-
-        $("openMaintenance")?.addEventListener("click", () => { openModal("maintenanceModal"); });
-        $("openExpenses")?.addEventListener("click", () => { openModal("expenseModal"); });
-
-        document.querySelectorAll("[data-close]").forEach(button => {
-            button.addEventListener("click", () => closeModal(button.dataset.close));
+        ensureUI();
+        ["maintenanceDate","expenseDate"].forEach(id => { if ($(id)) $(id).value = today(); });
+        $("maintenanceForm").addEventListener("submit", async e => {
+            e.preventDefault(); const v=await activeVehicle();
+            await addRecord("maintenance", {vehicleId:v?.id,title:$("maintenanceTitle").value.trim(),description:$("maintenanceDescription").value.trim(),odometer:Number($("maintenanceOdometer").value||0),cost:Number($("maintenanceCost").value||0),date:$("maintenanceDate").value,createdAt:new Date().toISOString(),synced:false});
+            e.target.reset(); $("maintenanceDate").value=today(); $("maintenanceModal").classList.add("hidden"); await refresh();
+        });
+        $("expenseForm").addEventListener("submit", async e => {
+            e.preventDefault(); const v=await activeVehicle();
+            await addRecord("expenses", {vehicleId:v?.id,category:$("expenseCategory").value,description:$("expenseDescription").value.trim(),amount:Number($("expenseAmount").value||0),odometer:Number($("expenseOdometer").value||0),date:$("expenseDate").value,createdAt:new Date().toISOString(),synced:false});
+            e.target.reset(); $("expenseDate").value=today(); $("expenseModal").classList.add("hidden"); await refresh();
         });
 
-        [maintenanceModal, expenseModal].forEach(modal => {
-            modal?.addEventListener("click", event => {
-                if (event.target === modal) modal.classList.add("hidden");
-            });
-        });
-
+        const buttons = [...document.querySelectorAll("#morePage .settings-list button")];
+        const find = label => buttons.find(b => b.textContent.trim().toLowerCase().startsWith(label));
+        find("maintenance")?.addEventListener("click", () => { $("maintenanceModal").classList.remove("hidden"); });
+        find("expenses")?.addEventListener("click", () => { $("expenseModal").classList.remove("hidden"); });
+        document.querySelector('[data-action="service"]')?.addEventListener("click", () => $("maintenanceModal").classList.remove("hidden"));
+        window.DRIVE_MAINTENANCE = { refresh, openMaintenance: () => $("maintenanceModal").classList.remove("hidden"), lastMaintenance: [], lastExpenses: [] };
         refresh();
     }
-
-    window.DRIVE_MAINTENANCE = { refresh, openMaintenance: () => openModal("maintenanceModal") };
     document.addEventListener("DOMContentLoaded", setup);
 })();
