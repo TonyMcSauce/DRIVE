@@ -63,7 +63,7 @@
     await saveActive();
     const ended=Date.now();
     const points=Array.isArray(snapshot.points)?snapshot.points.slice():[];
-    const distance=Number(GPS.distance||snapshot.distance||0);
+    const distance=Number(snapshot.distance||GPS.distance||0);
     const trip={
       vehicleId:snapshot.vehicleId,
       startTime:snapshot.startTime,
@@ -93,7 +93,7 @@
     window.DRIVE_V07?.refresh?.();
   }
 
-  async function onGPS(event){
+  function onGPS(event){
     if(!active)return;
     const point=event.detail?.point;
     if(!point)return;
@@ -112,11 +112,14 @@
       const saved=record?.value;
       if(!saved||saved.status!=="ACTIVE")return;
       active={...saved,points:Array.isArray(saved.points)?saved.points:[],recovered:true};
-      GPS.points=active.points.slice();
-      GPS.distance=Number(active.distance||0);
       setDrivingUI(true);
       announce("Unfinished drive recovered. DRIVE is continuing to record locally.");
-      try{GPS.start();}catch(error){console.warn("Recovered GPS could not restart",error);announce("Unfinished drive recovered. GPS needs to be restarted when available.");}
+      try{
+        GPS.start();
+        GPS.points=active.points.slice();
+        GPS.distance=Number(active.distance||0);
+        GPS.lastPoint=active.lastPoint||GPS.points.at(-1)||null;
+      }catch(error){console.warn("Recovered GPS could not restart",error);announce("Unfinished drive recovered. GPS needs to be restarted when available.");}
       emit();
     }catch(error){console.error("DRIVE trip recovery failed",error)}
     finally{recovering=false;}
