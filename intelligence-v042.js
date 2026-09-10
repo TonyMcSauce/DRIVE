@@ -42,3 +42,7 @@
   window.DRIVE_BEHAVIOUR_V042={refresh};
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
 })();
+(function loadVehicleMemory(){
+  if(window.DRIVE_MEMORY||document.querySelector('script[data-drive-memory]'))return;
+  const s=document.createElement("script");s.src=`./vehicle-memory.js?v=${typeof DRIVE_VERSION!=="undefined"?DRIVE_VERSION:"0.44"}`;s.dataset.driveMemory="1";s.onload=()=>window.DRIVE_MEMORY?.refresh?.();s.onerror=e=>console.error("Vehicle Memory module failed",e);document.head.appendChild(s);
+})();
