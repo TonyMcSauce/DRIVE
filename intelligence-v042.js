@@ -46,3 +46,7 @@
   if(window.DRIVE_MEMORY||document.querySelector('script[data-drive-memory]'))return;
   const s=document.createElement("script");s.src=`./vehicle-memory.js?v=${typeof DRIVE_VERSION!=="undefined"?DRIVE_VERSION:"0.44"}`;s.dataset.driveMemory="1";s.onload=()=>window.DRIVE_MEMORY?.refresh?.();s.onerror=e=>console.error("Vehicle Memory module failed",e);document.head.appendChild(s);
 })();
+(function loadComponents(){
+  if(window.DRIVE_COMPONENTS||document.querySelector('script[data-drive-components]'))return;
+  const s=document.createElement("script");s.src=`./components.js?v=${typeof DRIVE_VERSION!=="undefined"?DRIVE_VERSION:"0.46"}`;s.dataset.driveComponents="1";s.onload=()=>window.DRIVE_COMPONENTS?.refresh?.();s.onerror=e=>console.error("Components module failed",e);document.head.appendChild(s);
+})();
