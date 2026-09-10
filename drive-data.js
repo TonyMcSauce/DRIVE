@@ -20,3 +20,13 @@
   window.DRIVE_DATA={records,vehicleRecords,invalidate,snapshot,intelligence,getVehicleState,derive,emit,dateOf,monthKey,sortNewest,stores};
   window.addEventListener("drive:datachanged",event=>invalidate(event.detail?.store));
 })();
+
+(function loadCentralIntelligence(){
+  if(window.DRIVE_INTELLIGENCE||document.querySelector('script[data-drive-intelligence]'))return;
+  const s=document.createElement("script");
+  s.src="./intelligence-core-v050.js?v=0.50";
+  s.dataset.driveIntelligence="1";
+  s.onload=()=>window.DRIVE_INTELLIGENCE?.refresh?.();
+  s.onerror=e=>console.error("DRIVE central intelligence failed to load",e);
+  document.head.appendChild(s);
+})();
