@@ -50,3 +50,7 @@
   if(window.DRIVE_COMPONENTS||document.querySelector('script[data-drive-components]'))return;
   const s=document.createElement("script");s.src=`./components.js?v=${typeof DRIVE_VERSION!=="undefined"?DRIVE_VERSION:"0.46"}`;s.dataset.driveComponents="1";s.onload=()=>window.DRIVE_COMPONENTS?.refresh?.();s.onerror=e=>console.error("Components module failed",e);document.head.appendChild(s);
 })();
+(function loadVehicleHealth(){
+  if(window.DRIVE_HEALTH||document.querySelector('script[data-drive-health]'))return;
+  const s=document.createElement("script");s.src=`./vehicle-health-v048.js?v=${typeof DRIVE_VERSION!=="undefined"?DRIVE_VERSION:"0.48"}`;s.dataset.driveHealth="1";s.onload=()=>window.DRIVE_HEALTH?.refresh?.();s.onerror=e=>console.error("Vehicle Health module failed",e);document.head.appendChild(s);
+})();
