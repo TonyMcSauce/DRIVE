@@ -1,4 +1,4 @@
-/* DRIVE — Analytics v0.45.2 */
+/* DRIVE — Analytics v0.45.3 */
 (function () {
   "use strict";
 
@@ -31,6 +31,15 @@
     ".analytics-row strong{font-size:12px}",
     ".analytics-row span{font-size:10px;color:var(--muted)}",
     ".analytics-empty{padding:18px 0;color:var(--muted);font-size:11px;line-height:1.5}",
+    ".analytics-loading{display:grid;place-items:center;min-height:260px;text-align:center;border:1px solid var(--line);border-radius:16px;background:var(--surface)}",
+    ".analytics-loading-mark{width:34px;height:34px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:analyticsSpin .9s linear infinite;margin:0 auto 16px}",
+    ".analytics-loading-title{font-size:12px;font-weight:900;letter-spacing:.18em}",
+    ".analytics-loading-sub{margin-top:7px;color:var(--muted);font-size:10px;letter-spacing:.05em}",
+    ".analytics-loading-dots{display:inline-flex;gap:4px;margin-left:4px}",
+    ".analytics-loading-dots i{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.25;animation:analyticsDot 1.2s infinite}",
+    ".analytics-loading-dots i:nth-child(2){animation-delay:.18s}.analytics-loading-dots i:nth-child(3){animation-delay:.36s}",
+    "@keyframes analyticsSpin{to{transform:rotate(360deg)}}",
+    "@keyframes analyticsDot{0%,60%,100%{opacity:.2;transform:translateY(0)}30%{opacity:1;transform:translateY(-2px)}}",
     "@media(max-width:680px){.analytics-kpis{grid-template-columns:repeat(2,1fr)}}"
   ].join("");
 
@@ -40,6 +49,20 @@
     style.id = "analyticsStyles";
     style.textContent = styles;
     document.head.appendChild(style);
+  }
+
+  function loadingMarkup() {
+    return '<div class="analytics-loading" role="status" aria-live="polite"><div><div class="analytics-loading-mark" aria-hidden="true"></div><div class="analytics-loading-title">ANALYSING<span class="analytics-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span></div><div class="analytics-loading-sub">Reading your vehicle history and calculating insights</div></div></div>';
+  }
+
+  function showLoading(view) {
+    if (!view) return;
+    var existing = byId("analyticsLoading");
+    if (existing) return;
+    view.dataset.analyticsLoading = "1";
+    view.innerHTML =
+      '<div class="page-heading"><span class="eyebrow">VEHICLE INTELLIGENCE</span><h1 id="analytics-title">Analytics</h1></div>' +
+      '<div id="analyticsLoading">' + loadingMarkup() + '</div>';
   }
 
   function mount() {
@@ -56,26 +79,37 @@
     view.setAttribute("aria-labelledby", "analytics-title");
     view.innerHTML =
       '<div class="page-heading"><span class="eyebrow">VEHICLE INTELLIGENCE</span><h1 id="analytics-title">Analytics</h1></div>' +
+      '<div id="analyticsLoading">' + loadingMarkup() + '</div>';
+
+    main.appendChild(view);
+    return view;
+  }
+
+  function renderShell(view) {
+    if (!view) return;
+    view.dataset.analyticsLoading = "0";
+    view.innerHTML =
+      '<div class="page-heading"><span class="eyebrow">VEHICLE INTELLIGENCE</span><h1 id="analytics-title">Analytics</h1></div>' +
       '<div id="analyticsKpis" class="analytics-kpis"></div>' +
       '<div class="analytics-panel"><header><span>RUNNING COST · 6 MONTHS</span></header><div id="analyticsCostChart" class="analytics-bars" role="img" aria-label="Six month running cost chart"></div></div>' +
       '<div class="analytics-panel"><header><span>SPEND BREAKDOWN · THIS MONTH</span></header><div id="analyticsBreakdown" class="analytics-list"></div></div>' +
       '<button type="button" class="large-action analytics-back">BACK TO MORE</button>';
 
-    main.appendChild(view);
     view.querySelector(".analytics-back").addEventListener("click", function () {
       if (typeof window.DRIVE_APP?.showPage === "function") window.DRIVE_APP.showPage("morePage");
     });
-    return view;
   }
 
-  async function render(attempt) {
+  async function render(attempt, startedAt) {
     attempt = Number(attempt || 0);
+    startedAt = Number(startedAt || Date.now());
     var view = mount();
     if (!view) return;
 
+    if (!byId("analyticsLoading") && !byId("analyticsKpis")) showLoading(view);
+
+    var elapsed = Date.now() - startedAt;
     var kpis = byId("analyticsKpis");
-    var chart = byId("analyticsCostChart");
-    var breakdown = byId("analyticsBreakdown");
 
     if (typeof openDatabase === "function") {
       try {
@@ -86,11 +120,13 @@
     }
 
     if (!window.DRIVE_DATA || typeof window.DRIVE_DATA.intelligence !== "function") {
-      if (attempt < 20) {
-        setTimeout(function () { render(attempt + 1); }, 100);
+      if (elapsed < 5000 && attempt < 50) {
+        setTimeout(function () { render(attempt + 1, startedAt); }, 100);
         return;
       }
-      if (kpis) kpis.innerHTML = '<div class="analytics-empty">Analytics data is still loading.</div>';
+      showLoading(view);
+      var loading = byId("analyticsLoading");
+      if (loading) loading.innerHTML = '<div class="analytics-empty">Analytics is taking longer than expected. Please try again.</div>';
       return;
     }
 
@@ -105,6 +141,11 @@
       data.month.fuel = Array.isArray(data.month.fuel) ? data.month.fuel : [];
       data.month.expenses = Array.isArray(data.month.expenses) ? data.month.expenses : [];
       data.month.maintenance = Array.isArray(data.month.maintenance) ? data.month.maintenance : [];
+
+      renderShell(view);
+      kpis = byId("analyticsKpis");
+      var chart = byId("analyticsCostChart");
+      var breakdown = byId("analyticsBreakdown");
 
       var cards = [
         ["TOTAL SPEND", money(data.metrics.totalSpend), "this month"],
@@ -163,20 +204,23 @@
       }
     } catch (error) {
       console.error("Analytics data load failed", error);
-      if (attempt < 3) {
-        setTimeout(function () { render(attempt + 1); }, 150);
+      if (Date.now() - startedAt < 5000 && attempt < 50) {
+        setTimeout(function () { render(attempt + 1, startedAt); }, 150);
         return;
       }
-      if (kpis) kpis.innerHTML = '<div class="analytics-empty">Analytics could not load the current data.</div>';
+      showLoading(view);
+      var failed = byId("analyticsLoading");
+      if (failed) failed.innerHTML = '<div class="analytics-empty">Analytics could not load the current data.</div>';
     }
   }
 
   function openAnalytics() {
     var view = mount();
     if (!view) return;
+    showLoading(view);
     document.querySelectorAll(".page").forEach(function (page) { page.classList.remove("active"); });
     view.classList.add("active");
-    requestAnimationFrame(function () { render(0); });
+    requestAnimationFrame(function () { render(0, Date.now()); });
   }
 
   function bind() {
@@ -194,7 +238,7 @@
     }
   }
 
-  window.DRIVE_ANALYTICS = { refresh: function () { render(0); }, open: openAnalytics };
+  window.DRIVE_ANALYTICS = { refresh: function () { render(0, Date.now()); }, open: openAnalytics };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind, { once: true });
   else bind();
