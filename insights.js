@@ -23,17 +23,13 @@
         if (metricGrid && !$("driveInsights")) metricGrid.insertAdjacentHTML("afterend", `<div id="driveInsights" class="drive-insights"></div><div id="driveReminder"></div>`);
 
         if (!$('analyticsModal')) document.body.insertAdjacentHTML('beforeend', `<div id="analyticsModal" class="drive-modal hidden"><div class="drive-modal-sheet"><div class="drive-modal-head"><div><span class="eyebrow">VEHICLE INTELLIGENCE</span><h2>Analytics</h2></div><button class="drive-close" data-drive-close="analyticsModal">×</button></div><div id="analyticsContent"></div></div></div>`);
-        if (!$('vehicleSettingsModal')) document.body.insertAdjacentHTML('beforeend', `<div id="vehicleSettingsModal" class="drive-modal hidden"><div class="drive-modal-sheet"><div class="drive-modal-head"><div><span class="eyebrow">VEHICLE PROFILE</span><h2>Vehicle</h2></div><button class="drive-close" data-drive-close="vehicleSettingsModal">×</button></div><div class="drive-note">These details are stored locally on this device. Your odometer will also update automatically when you save a newer fuel reading.</div><form id="vehicleSettingsForm" class="drive-form"><label>Make<input id="vehicleMake" required></label><label>Model<input id="vehicleModel" required></label><label>Year<input id="vehicleYear" type="number" min="1950" max="2100" required></label><label>Engine<input id="vehicleEngine" required></label><label>Current odometer<input id="vehicleOdometer" type="number" min="0" required></label><button class="submit-button" type="submit">SAVE VEHICLE</button></form></div></div>`);
 
         document.querySelectorAll('[data-drive-close]').forEach(b => b.addEventListener('click', () => $(b.dataset.driveClose)?.classList.add('hidden')));
         const more = document.querySelectorAll('#morePage .settings-list button');
         more.forEach(button => {
             const label = button.textContent.trim().toLowerCase();
             if (label.startsWith('analytics')) button.addEventListener('click', openAnalytics);
-            if (label.startsWith('settings')) button.addEventListener('click', openVehicleSettings);
         });
-        $('settingsButton')?.addEventListener('click', openVehicleSettings);
-        $('vehicleSettingsForm')?.addEventListener('submit', saveVehicleSettings);
     }
 
     async function getVehicle() { return typeof getActiveVehicle === 'function' ? getActiveVehicle() : null; }
@@ -88,18 +84,6 @@
         await refresh(); const d = await calculate();
         $('analyticsContent').innerHTML = `<div class="drive-stat-grid"><div class="drive-stat"><span>RUNNING COST</span><strong>${money(d.running)}</strong></div><div class="drive-stat"><span>DISTANCE</span><strong>${d.distance.toFixed(1)} km</strong></div><div class="drive-stat"><span>FUEL ECONOMY</span><strong>${d.economy!=null?d.economy.toFixed(2):'—'}</strong></div><div class="drive-stat"><span>FUEL ENTRIES</span><strong>${d.fuelCount}</strong></div></div><div class="drive-breakdown"><div class="drive-breakdown-row"><span>Fuel</span><span>${money(d.fuelCost)}</span></div><div class="drive-breakdown-row"><span>Other expenses</span><span>${money(d.expenseCost)}</span></div><div class="drive-breakdown-row"><span>Maintenance</span><span>${money(d.serviceCost)}</span></div><div class="drive-breakdown-row"><span>Total this month</span><span>${money(d.running)}</span></div></div>`;
         $('analyticsModal').classList.remove('hidden');
-    }
-
-    async function openVehicleSettings() {
-        const v = await getVehicle(); if (!v) return;
-        $('vehicleMake').value=v.make||''; $('vehicleModel').value=v.model||''; $('vehicleYear').value=v.year||''; $('vehicleEngine').value=v.engine||''; $('vehicleOdometer').value=v.odometer||'';
-        $('vehicleSettingsModal').classList.remove('hidden');
-    }
-
-    async function saveVehicleSettings(e) {
-        e.preventDefault(); const v=await getVehicle(); if(!v)return;
-        v.make=$('vehicleMake').value.trim(); v.model=$('vehicleModel').value.trim(); v.name=`${v.make} ${v.model}`.trim(); v.year=Number($('vehicleYear').value); v.engine=$('vehicleEngine').value.trim(); v.odometer=Number($('vehicleOdometer').value); v.updatedAt=new Date().toISOString();
-        await putRecord('vehicles',v); $('vehicleSettingsModal').classList.add('hidden'); if(typeof initV06==='function')await initV06(); await refresh();
     }
 
     function boot(){ createUI(); refresh().catch(console.error); }
