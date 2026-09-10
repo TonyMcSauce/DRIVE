@@ -1,4 +1,4 @@
-/* DRIVE — Analytics v0.45.1 */
+/* DRIVE — Analytics v0.45.2 */
 (function () {
   "use strict";
 
@@ -68,7 +68,8 @@
     return view;
   }
 
-  async function render() {
+  async function render(attempt) {
+    attempt = Number(attempt || 0);
     var view = mount();
     if (!view) return;
 
@@ -76,7 +77,19 @@
     var chart = byId("analyticsCostChart");
     var breakdown = byId("analyticsBreakdown");
 
+    if (typeof openDatabase === "function") {
+      try {
+        await openDatabase();
+      } catch (error) {
+        console.error("Analytics database readiness failed", error);
+      }
+    }
+
     if (!window.DRIVE_DATA || typeof window.DRIVE_DATA.intelligence !== "function") {
+      if (attempt < 20) {
+        setTimeout(function () { render(attempt + 1); }, 100);
+        return;
+      }
       if (kpis) kpis.innerHTML = '<div class="analytics-empty">Analytics data is still loading.</div>';
       return;
     }
@@ -150,6 +163,10 @@
       }
     } catch (error) {
       console.error("Analytics data load failed", error);
+      if (attempt < 3) {
+        setTimeout(function () { render(attempt + 1); }, 150);
+        return;
+      }
       if (kpis) kpis.innerHTML = '<div class="analytics-empty">Analytics could not load the current data.</div>';
     }
   }
@@ -159,7 +176,7 @@
     if (!view) return;
     document.querySelectorAll(".page").forEach(function (page) { page.classList.remove("active"); });
     view.classList.add("active");
-    render();
+    requestAnimationFrame(function () { render(0); });
   }
 
   function bind() {
@@ -177,7 +194,7 @@
     }
   }
 
-  window.DRIVE_ANALYTICS = { refresh: render, open: openAnalytics };
+  window.DRIVE_ANALYTICS = { refresh: function () { render(0); }, open: openAnalytics };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind, { once: true });
   else bind();
