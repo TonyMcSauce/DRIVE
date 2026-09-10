@@ -1,0 +1,73 @@
+/* DRIVE v0.49 — DRIVE WATCH */
+(function(){
+  "use strict";
+  const $=id=>document.getElementById(id);
+  const esc=v=>String(v??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
+  const vehicleFilter=(rows,id)=>rows.filter(r=>!id||r.vehicleId==null||String(r.vehicleId)===String(id));
+  const dateOf=r=>new Date(r?.date||r?.startTime||r?.createdAt||0);
+  const median=a=>{const v=a.filter(Number.isFinite).sort((x,y)=>x-y);if(!v.length)return null;const m=Math.floor(v.length/2);return v.length%2?v[m]:(v[m-1]+v[m])/2};
+  const pct=v=>`${Math.round(Math.abs(v))}%`;
+  const km=v=>`${Math.round(Math.max(0,v)).toLocaleString()} km`;
+
+  async function collect(){
+    const vehicle=typeof getActiveVehicle==="function"?await getActiveVehicle():null;
+    if(!vehicle)return null;
+    const [fuel,trips,maintenance,components]=await Promise.all([
+      getAllRecords("fuel"),getAllRecords("trips"),getAllRecords("maintenance"),
+      window.DRIVE_COMPONENTS?.list?window.DRIVE_COMPONENTS.list():[]
+    ]);
+    const f=vehicleFilter(fuel,vehicle.id).filter(r=>Number(r.litres)>0&&Number(r.distance)>0).sort((a,b)=>dateOf(a)-dateOf(b));
+    const t=vehicleFilter(trips,vehicle.id).filter(r=>Number(r.distance)>0).sort((a,b)=>dateOf(a)-dateOf(b));
+    const m=vehicleFilter(maintenance,vehicle.id).filter(r=>Number(r.odometer)>=0).sort((a,b)=>Number(a.odometer)-Number(b.odometer));
+    const c=(components||[]).filter(r=>!r.vehicleId||String(r.vehicleId)===String(vehicle.id));
+    const normal=window.DRIVE_YOUR_NORMAL;
+    const economy=f.map(r=>Number(r.economy)>0?Number(r.economy):Number(r.litres)/Number(r.distance)*100).filter(v=>v>0&&v<100);
+    const baselineEconomy=median(economy), latestFuel=f.at(-1), latestEconomy=latestFuel?(Number(latestFuel.economy)>0?Number(latestFuel.economy):Number(latestFuel.litres)/Number(latestFuel.distance)*100):null;
+    const tripDistances=t.map(r=>Number(r.distance)).filter(v=>v>0), tripTimes=t.map(r=>Number(r.duration)).filter(v=>v>0);
+    const baselineDistance=median(tripDistances),baselineDuration=median(tripTimes),latestTrip=t.at(-1);
+    const speeds=t.map(r=>{const d=Number(r.distance),ms=Number(r.duration);return d>0&&ms>0?d/(ms/3600000):null}).filter(v=>v>0&&v<180),baselineSpeed=median(speeds);
+    const serviceOdo=m.map(r=>Number(r.odometer)).filter(v=>v>0), serviceGaps=serviceOdo.slice(1).map((v,i)=>v-serviceOdo[i]).filter(v=>v>0&&v<50000),baselineService=median(serviceGaps);
+    const lastService=serviceOdo.length?serviceOdo.at(-1):null, sinceService=lastService!=null?Number(vehicle.odometer||0)-lastService:null;
+    const watch=[];
+    const add=(severity,title,detail,evidence,confidence)=>watch.push({severity,title,detail,evidence,confidence});
+
+    if(economy.length>=3&&baselineEconomy&&latestEconomy){
+      const diff=(latestEconomy-baselineEconomy)/baselineEconomy*100;
+      if(diff>=15)add("attention","Fuel economy has worsened",`Your latest measured economy is ${pct(diff)} higher than your recorded baseline.`,`${latestEconomy.toFixed(2)} vs ${baselineEconomy.toFixed(2)} L/100 km`,Math.min(98,60+economy.length*5));
+      else if(diff<=-15)add("positive","Fuel economy has improved",`Your latest measured economy is ${pct(diff)} lower than your recorded baseline.`,`${latestEconomy.toFixed(2)} vs ${baselineEconomy.toFixed(2)} L/100 km`,Math.min(98,60+economy.length*5));
+    }
+    if(t.length>=3&&baselineDistance&&latestTrip){
+      const diff=(Number(latestTrip.distance)-baselineDistance)/baselineDistance*100;
+      if(Math.abs(diff)>=30)add("info","Drive distance changed",`This drive was ${pct(diff)} ${diff>0?"longer":"shorter"} than your normal recorded trip.`,`${Number(latestTrip.distance).toFixed(1)} vs ${baselineDistance.toFixed(1)} km`,Math.min(95,55+t.length*4));
+      const ms=Number(latestTrip.duration||0);
+      if(baselineDuration&&ms>0){const td=(ms-baselineDuration)/baselineDuration*100;if(Math.abs(td)>=35)add("info","Drive time changed",`This drive took ${pct(td)} ${td>0?"longer":"less time"} than your normal recorded drive.`,`${Math.round(ms/60000)} vs ${Math.round(baselineDuration/60000)} min`,Math.min(95,55+t.length*4));}
+    }
+    if(m.length>=2&&baselineService&&sinceService!=null&&sinceService>=baselineService*.9){
+      const overdue=Math.max(0,sinceService-baselineService);
+      add(overdue>0?"attention":"watch","Service window is approaching",overdue>0?`You are about ${km(overdue)} beyond your recorded service interval.`:`You are approaching your recorded service interval.`,`Last service ${lastService.toLocaleString()} km · interval ${Math.round(baselineService).toLocaleString()} km`,Math.min(98,60+m.length*6));
+    }
+    const needs=c.filter(x=>String(x.status||"").toLowerCase()==="needs attention");
+    if(needs.length)add("attention",`${needs.length} component${needs.length>1?"s":""} need${needs.length>1?"":"s"} attention`,needs.slice(0,3).map(x=>x.name).join(" · ")+ (needs.length>3?` +${needs.length-3} more`:""),"Recorded in Component Memory",95);
+    const recentCut=Date.now()-90*86400000,recent=m.filter(x=>dateOf(x).getTime()>=recentCut),costs=recent.map(x=>Number(x.cost||0)).filter(v=>v>0),recentSpend=costs.reduce((s,v)=>s+v,0);
+    if(costs.length>=2){const historical=m.filter(x=>dateOf(x).getTime()<recentCut).map(x=>Number(x.cost||0)).filter(v=>v>0),historicalAvg=historical.length?historical.reduce((s,v)=>s+v,0)/historical.length:null;if(historicalAvg&&recentSpend>historicalAvg*2)add("info","Maintenance spend has increased",`Recent recorded maintenance spend is more than twice your earlier average event cost.`,`Last 90 days: P${recentSpend.toFixed(2)} · earlier event average: P${historicalAvg.toFixed(2)}`,Math.min(90,55+m.length*5));}
+    return {vehicle,f,t,m,c,watch,baselineEconomy,latestEconomy,baselineDistance,baselineDuration,baselineSpeed,baselineService,sinceService,normal};
+  }
+
+  function styles(){
+    if($("driveWatchStyles"))return;
+    const s=document.createElement("style");s.id="driveWatchStyles";s.textContent=`.drive-watch{margin-top:9px}.drive-watch-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}.drive-watch-header span{display:block;color:var(--muted);font-size:8px;font-weight:900;letter-spacing:.12em}.drive-watch-header h2{margin:5px 0 0;font-size:21px;letter-spacing:-.03em}.drive-watch-state{font-size:8px;font-weight:900;letter-spacing:.08em;color:var(--muted);padding:5px 7px;border:1px solid var(--line);border-radius:7px;white-space:nowrap}.drive-watch-list{display:grid;gap:7px}.drive-watch-item{padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);display:flex;gap:10px;align-items:flex-start}.drive-watch-mark{width:7px;height:7px;border-radius:50%;margin-top:4px;flex:0 0 auto;background:currentColor}.drive-watch-item.attention{color:#e6b36a}.drive-watch-item.watch{color:#d8c66a}.drive-watch-item.info{color:#8ea4b5}.drive-watch-item.positive{color:#8db69b}.drive-watch-copy strong{display:block;color:var(--text,#f1f3f4);font-size:10px;line-height:1.35}.drive-watch-copy p{margin:3px 0 0;color:var(--muted);font-size:9px;line-height:1.4}.drive-watch-copy small{display:block;margin-top:5px;color:var(--muted);font-size:8px}.drive-watch-clear{padding:11px 12px;border:1px solid var(--line);border-radius:12px;color:var(--muted);font-size:9px;line-height:1.45;background:rgba(255,255,255,.018)}.drive-watch-confidence{float:right}.drive-watch-detail{margin-top:8px;color:var(--muted);font-size:8px}.drive-watch-analytics{margin-top:10px}.drive-watch-analytics .drive-watch-item{background:var(--surface)}@media(min-width:681px){.drive-watch-list{grid-template-columns:repeat(2,minmax(0,1fr))}}`;
+    document.head.appendChild(s);
+  }
+
+  function item(x,detail=false){return `<article class="drive-watch-item ${esc(x.severity)}"><span class="drive-watch-mark" aria-hidden="true"></span><div class="drive-watch-copy"><strong>${esc(x.title)}</strong><p>${esc(x.detail)}</p>${detail?`<small>${esc(x.evidence)} <span class="drive-watch-confidence">${Math.round(x.confidence)}% confidence</span></small>`:`<small>${esc(x.evidence)}</small>`}</div></article>`}
+
+  function targetHome(){const dash=$("dashboardPage");if(!dash)return null;let p=$("driveWatchHome");if(!p){p=document.createElement("section");p.id="driveWatchHome";p.className="panel drive-watch";const health=$("health-title")?.closest(".panel");if(health)health.insertAdjacentElement("afterend",p);else dash.querySelector(".drive-briefing")?.insertAdjacentElement("beforebegin",p)}return p}
+  function targetAnalytics(){const view=$("analyticsView");if(!view)return null;let p=$("driveWatchAnalytics");if(!p){p=document.createElement("section");p.id="driveWatchAnalytics";p.className="analytics-panel drive-watch drive-watch-analytics";const normal=$("yourNormalPanel");if(normal)normal.insertAdjacentElement("afterend",p);else view.insertAdjacentElement("afterbegin",p)}return p}
+  function renderHome(d){const p=targetHome();if(!p)return;const active=d.watch.filter(x=>x.severity==="attention"||x.severity==="watch");p.innerHTML=`<div class="drive-watch-header"><div><span>CHANGE DETECTION</span><h2>DRIVE WATCH</h2></div><span class="drive-watch-state">${active.length?`${active.length} WATCHING`:"QUIET"}</span></div>${d.watch.length?`<div class="drive-watch-list">${d.watch.slice(0,2).map(x=>item(x,false)).join("")}</div>`:`<div class="drive-watch-clear"><strong>Nothing meaningful has changed.</strong><br>DRIVE is comparing new activity with your recorded patterns and vehicle history.</div>`}`}
+  function renderAnalytics(d){const p=targetAnalytics();if(!p)return;p.innerHTML=`<div class="drive-watch-header"><div><span>CHANGE DETECTION</span><h2>DRIVE WATCH</h2></div><span class="drive-watch-state">${d.watch.length?`${d.watch.length} SIGNAL${d.watch.length>1?"S":""}`:"QUIET"}</span></div>${d.watch.length?`<div class="drive-watch-list">${d.watch.map(x=>item(x,true)).join("")}</div>`:`<div class="drive-watch-clear"><strong>No meaningful change detected.</strong><br>DRIVE needs enough personal history before it will raise a signal. It will not manufacture alerts from generic vehicle assumptions.</div>`}<div class="drive-watch-detail">Signals are observations, not mechanical diagnoses. Confidence reflects the amount of recorded evidence behind each signal.</div>`}
+  async function refresh(){try{styles();const d=await collect();if(!d)return;renderHome(d);renderAnalytics(d)}catch(e){console.error("DRIVE WATCH failed",e)}}
+  function init(){styles();refresh()}
+  window.DRIVE_WATCH={refresh};
+  window.addEventListener("drive:datachanged",refresh);
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
+})();
