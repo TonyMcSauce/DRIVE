@@ -1,4 +1,4 @@
-const DRIVE_VERSION="0.45";
+const DRIVE_VERSION="0.46";
 let currentPage="dashboardPage",tripActive=false,tripTimer=null,tripStartedAt=null,driveReloadingForUpdate=false;
 const DRIVE_LIMITS=Object.freeze({maxOdometer:99999999,maxLitres:500,maxCost:1000000});
 const escapeHTML=value=>String(value??"").replace(/[&<>'"]/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[char]));
