@@ -54,3 +54,7 @@
   if(window.DRIVE_HEALTH||document.querySelector('script[data-drive-health]'))return;
   const s=document.createElement("script");s.src=`./vehicle-health-v048.js?v=${typeof DRIVE_VERSION!=="undefined"?DRIVE_VERSION:"0.48"}`;s.dataset.driveHealth="1";s.onload=()=>window.DRIVE_HEALTH?.refresh?.();s.onerror=e=>console.error("Vehicle Health module failed",e);document.head.appendChild(s);
 })();
+(function loadDriveWatch(){
+  if(window.DRIVE_WATCH||document.querySelector('script[data-drive-watch]'))return;
+  const s=document.createElement("script");s.src=`./drive-watch-v049.js?v=${typeof DRIVE_VERSION!=="undefined"?DRIVE_VERSION:"0.49"}`;s.dataset.driveWatch="1";s.onload=()=>window.DRIVE_WATCH?.refresh?.();s.onerror=e=>console.error("DRIVE WATCH module failed",e);document.head.appendChild(s);
+})();
