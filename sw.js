@@ -1,9 +1,21 @@
-const CACHE_VERSION="drive-v0.65";
+const CACHE_VERSION="drive-v0.66";
 const APP_SHELL=["./","./index.html","./styles.css","./theme-v028.css","./app.js","./db.js","./gps.js","./maintenance.js","./maintenance-intelligence.js","./fuel-intelligence.js","./trip-intelligence.js","./anomaly-engine.js","./camera-ocr.js","./predictive-engine.js","./decision-engine.js","./documents.js","./trip-controller-v057.js","./drive-runtime-v063.js","./v0.29.js","./intelligence-v031.js","./icon-system-v032.js","./intelligence-v033.js","./intelligence-v034.js","./intelligence-v035.js","./intelligence-v036.js","./intelligence-v037.js","./intelligence-v038.js","./intelligence-v039.js","./intelligence-v041.js","./intelligence-v042.js","./vehicle-memory.js","./components.js","./your-normal-v047.js","./vehicle-health-v048.js","./drive-watch-v049.js","./intelligence-core-v050.js","./trip-persistence-v051.js","./data-tools.js","./drive-data.js","./v0.6.js","./insights.js","./v0.7.js","./analytics.js","./accessibility.js","./vehicle-settings.js","./performance.js","./manifest.json","./icons/icon.svg"];
 self.addEventListener("install",event=>{event.waitUntil(caches.open(CACHE_VERSION).then(async cache=>{for(const url of APP_SHELL){try{await cache.add(url)}catch(error){console.warn("DRIVE cache skipped",url,error)}}}));self.skipWaiting()});
 self.addEventListener("activate",event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith("drive-")&&key!==CACHE_VERSION).map(key=>caches.delete(key)))).then(()=>self.clients.claim()))});
 function sameOrigin(url){return url.origin===self.location.origin}
 function cleanRequest(request){const url=new URL(request.url);url.search="";url.hash="";return new Request(url.toString(),{method:"GET",headers:request.headers,mode:request.mode,credentials:request.credentials,cache:"no-store",redirect:request.redirect,referrer:request.referrer,referrerPolicy:request.referrerPolicy})}
 async function textResponse(request,transform){const clean=cleanRequest(request);try{const network=await fetch(clean,{cache:"no-store"});if(network.ok){let text=await network.text();text=await transform(text);return new Response(text,{status:network.status,statusText:network.statusText,headers:{"Content-Type":request.url.endsWith(".html")?"text/html; charset=utf-8":"application/javascript; charset=utf-8","Cache-Control":"no-store"}})}}catch(error){console.warn("DRIVE network transform failed",request.url,error)}const cached=await caches.match(clean);return cached||fetch(clean)}
-function patchHTML(text){return text.replaceAll("v0.62","v0.65").replaceAll("v0.63","v0.65").replace('<script src="app.js"></script><script src="trip-controller-v057.js"></script><script src="drive-runtime-v063.js"></script>','<script src="trip-controller-v057.js"></script><script src="drive-runtime-v063.js"></script><script src="app.js"></script>')}
-self.addEventListener("fetch",event=>{const request=event.request;if(request.method!=="GET"||!sameOrigin(new URL(request.url)))return;const url=new URL(request.url);if(url.pathname.endsWith("/index.html")||url.pathname.endsWith("/DRIVE/")){event.respondWith(textResponse(request,patchHTML));return}if(url.pathname.endsWith("/app.js")){event.respondWith(textResponse(request,text=>text.replace('const DRIVE_VERSION="0.47"','const DRIVE_VERSION="0.65"')));return}if(url.pathname.endsWith(".js")&&url.search){event.respondWith(textResponse(request,text=>text));return}});
+function patchHTML(text){
+  text=text.replaceAll("v0.62","v0.66").replaceAll("v0.63","v0.66");
+  text=text.replace('<script src="app.js"></script><script src="trip-controller-v057.js"></script><script src="drive-runtime-v063.js"></script>','<script src="trip-controller-v057.js"></script><script src="drive-runtime-v063.js"></script><script src="app.js"></script>');
+  if(!text.includes('<script src="documents.js"></script>'))text=text.replace('<script src="trip-controller-v057.js"></script>','<script src="documents.js"></script><script src="trip-controller-v057.js"></script>');
+  return text;
+}
+self.addEventListener("fetch",event=>{
+  const request=event.request;
+  if(request.method!=="GET"||!sameOrigin(new URL(request.url)))return;
+  const url=new URL(request.url);
+  if(url.pathname.endsWith("/index.html")||url.pathname.endsWith("/DRIVE/")){event.respondWith(textResponse(request,patchHTML));return}
+  if(url.pathname.endsWith("/app.js")){event.respondWith(textResponse(request,text=>text.replace('const DRIVE_VERSION="0.47"','const DRIVE_VERSION="0.66"')));return}
+  if(url.pathname.endsWith(".js")&&url.search){event.respondWith(textResponse(request,text=>text));return}
+});
