@@ -1,20 +1,32 @@
-/* DRIVE v0.60 — Vehicle Decision Engine */
-(()=>{
-"use strict";
-const $=id=>document.getElementById(id);
-const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
-const weight={attention:100,watch:70,info:35,positive:15};
-const severity=v=>weight[v]!=null?v:"info";
-const confidence=v=>Math.max(0,Math.min(100,Number(v)>1?Number(v):Number(v||0)*100));
-function mount(){let h=$("driveDecision");if(h)return h;const dash=$("dashboardPage");if(!dash)return null;const anchor=$("driveBriefing")||dash.querySelector(".panel");h=document.createElement("section");h.id="driveDecision";h.className="panel drive-decision";h.innerHTML='<div class="decision-empty"><span class="decision-kicker">NEXT BEST ACTION</span><strong>Building your decision model</strong><p>DRIVE is combining your recorded vehicle signals.</p></div>';anchor?.after(h);return h}
-function make(x){return{type:x.type||"vehicle",severity:severity(x.severity),title:x.title||"Vehicle signal",message:x.message||"DRIVE detected a change.",action:x.action||"Continue recording vehicle activity.",why:x.why||"This recommendation is based on your recorded vehicle history.",evidence:x.evidence||{},confidence:x.confidence??.6,source:x.source||"data"}}
-function canonical(type=""){const t=String(type).toLowerCase();if(t.includes("service")||t.includes("maintenance"))return"service";if(t.includes("fuel")||t.includes("economy"))return"fuel";if(t.includes("cost")||t.includes("spend"))return"cost";if(t.includes("drive")||t.includes("trip"))return"driving";if(t.includes("component"))return"component";return t||"vehicle"}
-async function collect(){const decisions=[];
-try{const w=await window.DRIVE_WATCH?.collect?.();for(const x of (w?.watch||[]))decisions.push(make({type:canonical(x.title),severity:x.severity,title:x.title,message:x.detail,action:x.severity==="attention"?"Review this item before the next drive.":"Monitor the next few records before taking action.",why:"DRIVE detected a meaningful change against your recorded vehicle history.",evidence:{signal:x.evidence},confidence:Number(x.confidence||.6),source:"watch"}))}catch(e){console.warn("Decision WATCH input unavailable",e)}
-try{const data=await window.DRIVE_DATA?.intelligence?.();if(data){const fuel=(data.fuel||[]).filter(r=>Number(r.litres)>0&&Number(r.distance)>0);const trips=(data.trips||[]).filter(r=>Number(r.distance)>0);if(fuel.length>=3){const economy=fuel.map(r=>Number(r.economy)>0?Number(r.economy):Number(r.litres)/Number(r.distance)*100).filter(v=>v>0&&v<100);if(economy.length>=3){const recent=economy.slice(-3).reduce((a,b)=>a+b,0)/3;const baseline=economy.reduce((a,b)=>a+b,0)/economy.length;const diff=(recent-baseline)/baseline*100;if(diff>=15)decisions.push(make({type:"fuel",severity:"attention",title:"Fuel economy needs attention",message:`Recent economy is ${Math.abs(diff).toFixed(0)}% worse than your recorded baseline.`,action:"Check conditions and the next fill-up before deciding on maintenance.",why:"Recent measured economy is materially above your own historical baseline.",evidence:{"Recent average":`${recent.toFixed(2)} L/100 km`,"Baseline":`${baseline.toFixed(2)} L/100 km`,"Fuel records":fuel.length},confidence:Math.min(.95,.6+fuel.length*.05),source:"data"}))}}}if(trips.length>=3){const distances=trips.map(r=>Number(r.distance)).filter(v=>v>0);const last=distances.at(-1);const avg=distances.reduce((a,b)=>a+b,0)/distances.length;if(last>avg*1.3||last<avg*.7)decisions.push(make({type:"driving",severity:"info",title:"Your latest drive was unusual",message:`The latest trip was ${last.toFixed(1)} km versus a ${avg.toFixed(1)} km average.`,action:"No action required; use this as context for fuel and cost trends.",why:"Trip distance is outside the normal range in your recorded history.",evidence:{"Latest trip":`${last.toFixed(1)} km`,"Average":`${avg.toFixed(1)} km`},confidence:.8,source:"data"}))}}}catch(e){console.warn("Decision data input unavailable",e)}
-return decisions}
-function rank(items){const best=new Map();for(const x of items){const k=canonical(x.type);const score=weight[x.severity]+confidence(x.confidence)/10;const old=best.get(k);if(!old||score>old.score)best.set(k,{...x,score})}return[...best.values()].sort((a,b)=>b.score-a.score).map((x,i)=>({...x,priority:i+1}))}
-function render(items){const h=mount();if(!h)return;const a=items.slice(0,3);if(!a.length){h.innerHTML='<div class="decision-empty"><span class="decision-kicker">NEXT BEST ACTION</span><strong>Keep recording your vehicle activity</strong><p>DRIVE does not have enough evidence for a meaningful action yet.</p></div>';return}const t=a[0];h.innerHTML=`<div class="decision-head"><div><span class="decision-kicker">NEXT BEST ACTION</span><h2>${esc(t.title)}</h2></div><span class="decision-severity ${esc(t.severity)}">${esc(t.severity.toUpperCase())}</span></div><p class="decision-message">${esc(t.message)}</p><div class="decision-action"><span>ACTION</span><strong>${esc(t.action)}</strong></div><details class="decision-details"><summary>Why DRIVE is recommending this</summary><p>${esc(t.why)}</p><div class="decision-evidence">${Object.entries(t.evidence||{}).slice(0,5).map(([k,v])=>`<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join("")}<div><span>Confidence</span><strong>${Math.round(confidence(t.confidence))}%</strong></div></div></details>${a.length>1?`<div class="decision-more">${a.slice(1).map(x=>`<div class="decision-row"><span class="decision-severity">${esc(x.severity.toUpperCase())}</span><div><strong>${esc(x.title)}</strong><p>${esc(x.message)}</p></div><span class="decision-confidence">${Math.round(confidence(x.confidence))}%</span></div>`).join("")}</div>`:""}`}
-async function refresh(){try{const ranked=rank(await collect());render(ranked);return ranked}catch(e){console.error("DRIVE decision engine failed",e);return[]}}
-window.DRIVE_DECISION={collect,refresh,rank};window.addEventListener("drive:datachanged",refresh);if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>setTimeout(refresh,250),{once:true});else setTimeout(refresh,250);
+/* DRIVE v0.62 — decision engine */
+(function(){
+  "use strict";
+  const esc=value=>String(value??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  function collect(){
+    const items=[];
+    try{
+      const watch=window.DRIVE_WATCH?.collect?.()||[];
+      if(Array.isArray(watch)) watch.forEach(x=>items.push({...x,source:"WATCH"}));
+    }catch(e){ console.warn("DRIVE decision watch read failed",e); }
+    try{
+      const health=Number(document.getElementById("healthScore")?.textContent);
+      if(Number.isFinite(health)&&health<70) items.push({severity:"attention",title:"Vehicle health",message:`Health score is ${health}/100. Review service records.` ,source:"HEALTH"});
+    }catch(e){ console.warn("DRIVE decision health read failed",e); }
+    return items;
+  }
+  function rank(items){
+    const weight={attention:3,warning:3,watch:2,positive:1,info:1};
+    return [...items].sort((a,b)=>(weight[b.severity]||0)-(weight[a.severity]||0));
+  }
+  function refresh(){
+    try{
+      const host=document.getElementById("driveDecision");
+      if(!host)return;
+      const items=rank(collect()).slice(0,5);
+      host.innerHTML=items.length?items.map(x=>`<article class="briefing-item severity-${esc(x.severity||"info")}"><div class="briefing-title"><strong>${esc(x.title||"Decision")}</strong><span>${esc(x.source||"DRIVE")}</span></div><p>${esc(x.message||x.text||"")}</p></article>`).join(""):"<div class=\"briefing-empty\"><strong>No decisions yet</strong><p>DRIVE will surface useful actions as your vehicle data builds.</p></div>";
+    }catch(e){ console.error("DRIVE decision refresh failed",e); }
+  }
+  window.DRIVE_DECISION={collect,rank,refresh};
+  document.addEventListener("DOMContentLoaded",()=>setTimeout(refresh,0));
+  window.addEventListener("drive:datachanged",refresh);
 })();
