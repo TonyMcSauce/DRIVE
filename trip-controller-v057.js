@@ -5,14 +5,13 @@
   let active=null,finishInProgress=false,bound=false;
   const $=id=>document.getElementById(id);
   const iso=ms=>new Date(ms).toISOString();
-  const announce=message=>{const el=$("networkStatus")||$("recentActivity");if(el){el.dataset.message=message;el.setAttribute("aria-label",message);el.textContent=message;}};
+  const announce=message=>{const el=$("networkStatus")||$("recentActivity");if(el){el.dataset.message=message;el.setAttribute("aria-label",message);const text=$("networkText");if(text)text.textContent=message;}};
   const emit=()=>window.dispatchEvent(new CustomEvent("drive:datachanged",{detail:{store:"trips"}}));
   const state=()=>window.dispatchEvent(new CustomEvent("drive:tripstate",{detail:{state:active?"ACTIVE":"IDLE",active}}));
   const goToTrips=()=>{if(typeof window.DRIVE_APP?.showPage==="function")window.DRIVE_APP.showPage("tripsPage");};
 
   async function read(){try{return (await getRecord("settings",ACTIVE_KEY))?.value||null;}catch(e){console.error("DRIVE trip state read failed",e);return null;}}
   async function write(value){await putRecord("settings",{key:ACTIVE_KEY,value});}
-
   function ui(on){
     $("tripLiveCard")?.classList.toggle("hidden",!on);
     $("tripStartButton")?.classList.toggle("hidden",on);
@@ -22,7 +21,6 @@
     if(b)b.innerHTML=on?'<span class="action-icon" aria-hidden="true">●</span><span>DRIVING</span>':'<span class="action-icon" aria-hidden="true">●</span><span>START DRIVE</span>';
     state();
   }
-
   async function start(){
     if(active||finishInProgress)return;
     const saved=await read();
@@ -39,12 +37,10 @@
     try{GPS.start();}catch(e){active=null;await write(null);throw e;}
     ui(true);goToTrips();announce("Drive recording. Data is saved locally.");emit();
   }
-
   async function finish(){
     if(finishInProgress)return;
     finishInProgress=true;
-    const b=$("stopDriveButton");
-    if(b){b.disabled=true;b.textContent="SAVING DRIVE…";}
+    const b=$("stopDriveButton");if(b){b.disabled=true;b.textContent="SAVING DRIVE…";}
     try{
       if(!active){const saved=await read();if(saved?.status==="ACTIVE")active={...saved,points:Array.isArray(saved.points)?saved.points:[],recovered:true};}
       if(!active){announce("No active drive found.");return;}
@@ -63,16 +59,7 @@
       ui(!!active);announce(`Drive could not be saved: ${error?.message||"local storage error"}`);
     }finally{if(b){b.disabled=false;b.textContent="END DRIVE";}finishInProgress=false;}
   }
-
-  function onGPS(event){
-    if(!active)return;
-    const point=event.detail?.point;if(!point)return;
-    active.points.push({...point});
-    active.distance=Number(event.detail?.distance??GPS.distance??active.distance??0);
-    active.lastPoint=point;
-    write(active).catch(e=>console.warn("DRIVE trip checkpoint failed",e));
-  }
-
+  function onGPS(event){if(!active)return;const point=event.detail?.point;if(!point)return;active.points.push({...point});active.distance=Number(event.detail?.distance??GPS.distance??active.distance??0);active.lastPoint=point;write(active).catch(e=>console.warn("DRIVE trip checkpoint failed",e));}
   function bind(){
     if(bound)return;
     const startButton=$("startDriveButton"),stopButton=$("stopDriveButton");
@@ -81,19 +68,15 @@
     startButton.addEventListener("click",e=>{e.preventDefault();e.stopImmediatePropagation();Promise.resolve(start()).catch(error=>{console.error("DRIVE start failed",error);active=null;ui(false);announce(`Drive could not start: ${error?.message||"error"}`);});},true);
     stopButton.addEventListener("click",e=>{e.preventDefault();e.stopImmediatePropagation();Promise.resolve(finish()).catch(error=>console.error("DRIVE finish handler failed",error));},true);
   }
-
   async function boot(){
     bind();
     const saved=await read();
     if(saved?.status==="ACTIVE"){
       active={...saved,points:Array.isArray(saved.points)?saved.points:[],recovered:true};
       GPS.points=active.points.slice();GPS.distance=Number(active.distance||0);GPS.startTime=Number(active.startMs)||Date.now();
-      ui(true);
-      try{GPS.start({preserveState:true});}catch(e){console.warn("DRIVE recovery GPS start failed",e);}
-      announce("Unfinished drive recovered.");
+      ui(true);try{GPS.start({preserveState:true});}catch(e){console.warn("DRIVE recovery GPS start failed",e);}announce("Unfinished drive recovered.");
     }else ui(false);
   }
-
   document.addEventListener("gpsupdate",onGPS);
   document.addEventListener("DOMContentLoaded",()=>setTimeout(boot,0),{once:true});
   window.DRIVE_TRIP_CONTROLLER={start,finish,recover:boot,isActive:()=>!!active,getActive:()=>active,version:"0.66"};
