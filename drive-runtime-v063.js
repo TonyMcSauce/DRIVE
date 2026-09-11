@@ -22,6 +22,20 @@
     return documentsLoading;
   }
 
+  function bindDocumentsAction(){
+    const list=document.querySelector("#morePage .settings-list");
+    if(!list||list.dataset.driveDocumentsBound)return;
+    list.dataset.driveDocumentsBound="1";
+    list.addEventListener("click",event=>{
+      const button=event.target.closest("button");
+      if(!button||!list.contains(button))return;
+      const label=button.textContent.trim().toLowerCase();
+      if(!label.startsWith("documents"))return;
+      event.preventDefault();
+      loadDocuments().then(api=>api?.open?.());
+    });
+  }
+
   function bindEndDrive(){
     const button=document.getElementById("stopDriveButton");
     if(!button||button.dataset.drive066Bound)return;
@@ -41,12 +55,13 @@
   function boot(){
     syncVersion();
     bindEndDrive();
+    bindDocumentsAction();
     loadDocuments();
-    setTimeout(()=>{syncVersion();bindEndDrive();loadDocuments();},0);
+    setTimeout(()=>{syncVersion();bindEndDrive();bindDocumentsAction();loadDocuments();},0);
   }
 
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{capture:true,once:true});
   else boot();
 
-  window.DRIVE_RUNTIME_V063={version:VERSION,syncVersion,bindEndDrive,loadDocuments};
+  window.DRIVE_RUNTIME_V063={version:VERSION,syncVersion,bindEndDrive,bindDocumentsAction,loadDocuments};
 })();
